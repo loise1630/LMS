@@ -929,10 +929,10 @@ const Faculty = {
           <label class="form-label">Upload Quiz File (TXT, PDF, or PPTX)</label>
           <input type="file" id="modal-quiz-file" class="form-control" accept=".txt,.pdf,.pptx" onchange="Faculty.readQuizFile(event, '${topicId}')" />
           <small id="modal-quiz-estimate" style="color: #0071e3; display:block; margin-top:.25rem;"></small>
-          <small id="modal-quiz-file-status" style="color: var(--gray-500); display: block; margin-top: 0.35rem;">Upload a TXT, PDF, or PPTX containing numbered questions, A)–D) options, and Answer: B lines.</small>
+          <small id="modal-quiz-file-status" style="color: var(--gray-500); display: block; margin-top: 0.35rem;">Upload a TXT, PDF, or PPTX containing numbered questions, A)–D) options only, and Answer: B lines.</small>
           <textarea id="modal-bulk-text" class="form-control" style="min-height: 180px; font-family: monospace; font-size: 0.85rem;" placeholder="The extracted quiz text will appear here for review." readonly></textarea>
           <small style="color: var(--gray-500); display: block; margin-top: 0.25rem;">
-            Format: Numbered questions with A), B), C), D) options, followed by Answer: [Letter].
+            Format: Numbered questions with 2–4 options labeled A), B), C), D) only, followed by Answer: [A–D].
           </small>
         </div>
         <div class="form-group">

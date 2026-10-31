@@ -89,29 +89,103 @@ const App = {
     if (!nav) return;
     if (!this.state.user) {
       nav.innerHTML = `<button class="btn btn-primary btn-sm" onclick="App.renderAuth()">Log In / Register</button>`;
+      this.renderSidebarNav();
       return;
     }
-    const isFac = this.isFacultyUser();
+    const fullName = `${this.state.user.firstName || ''} ${this.state.user.lastName || ''}`.trim();
+    const initials = fullName.split(/\s+/).filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase();
     nav.innerHTML = `
       <div class="user-pill">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg>
-        <strong>${this.state.user.lastName}, ${this.state.user.firstName}</strong>
-        <code style="background:rgba(99,102,241,0.2);padding:2px 7px;border-radius:4px;font-size:0.7rem;color:#a5b4fc">${this.state.user.idNumber}</code>
-        <span class="role-badge ${this.state.user.role}">${this.state.user.role}</span>
+        <span class="user-avatar" aria-hidden="true">${this.escapeHtml(initials || 'U')}</span>
+        <span class="user-pill-copy">
+          <strong>${this.escapeHtml(fullName)}</strong>
+          <span>${this.escapeHtml(this.state.user.idNumber || '')}</span>
+        </span>
+        <span class="role-badge ${this.isFacultyUser() ? 'faculty' : 'student'}">${this.isFacultyUser() ? 'Faculty' : 'Student'}</span>
       </div>
-      ${isFac ? `<button class="btn btn-ghost btn-sm" onclick="App.openSubjectModal()" title="Edit Subject">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-        Settings
-      </button>` : ''}
-      ${isFac ? `<button class="btn btn-ghost btn-sm" onclick="App.navigate('master-report')">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-        Gradebook
-      </button>` : ''}
-      <button class="btn btn-danger btn-sm" onclick="App.logout()">
+      <button class="btn btn-ghost btn-sm logout-button" onclick="App.logout()">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-        Logout
+        <span>Sign out</span>
       </button>
     `;
+    this.renderSidebarNav();
+  },
+
+  renderSidebarNav() {
+    const nav = document.getElementById('sidebar-nav');
+    const sidebar = document.getElementById('app-sidebar');
+    if (!nav || !sidebar) return;
+    if (!this.state.user) {
+      nav.innerHTML = '';
+      return;
+    }
+
+    const isFaculty = this.isFacultyUser();
+    const activeView = this.state.currentView;
+    const modulesActive = ['topics', 'topic-detail', 'quiz'].includes(activeView);
+    const reportActive = ['topic-report', 'master-report'].includes(activeView);
+    nav.innerHTML = `
+      <button type="button" class="sidebar-link ${modulesActive ? 'active' : ''}" onclick="App.navigate('topics')" ${modulesActive ? 'aria-current="page"' : ''}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M12 8h5M12 12h5M12 16h3"/></svg>
+        <span>Course modules</span>
+      </button>
+      ${isFaculty ? `
+        <button type="button" class="sidebar-link ${reportActive ? 'active' : ''}" onclick="App.navigate('master-report')" ${reportActive ? 'aria-current="page"' : ''}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/><path d="M16 7h3v3"/></svg>
+          <span>Gradebook</span>
+        </button>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section-label">Manage</div>
+        <button type="button" class="sidebar-link" onclick="App.closeMobileSidebar();App.openSubjectModal()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.6 2.8-.2-.1a1.7 1.7 0 0 0-1.8.1l-.2.1h-3.2l-.1-.2a1.7 1.7 0 0 0-1.6-1l-.2.1-2.8-1.6.1-.2a1.7 1.7 0 0 0-.1-1.8l-.1-.2v-3.2l.2-.1a1.7 1.7 0 0 0 1-1.6l-.1-.2 1.6-2.8.2.1a1.7 1.7 0 0 0 1.8-.1l.2-.1h3.2l.1.2a1.7 1.7 0 0 0 1.6 1l.2-.1 2.8 1.6-.1.2a1.7 1.7 0 0 0 .1 1.8l.1.2V15z"/></svg>
+          <span>Course settings</span>
+        </button>
+      ` : ''}
+    `;
+
+    const heading = document.getElementById('workspace-title');
+    if (heading) {
+      const titles = {
+        topics: 'Course modules',
+        'topic-detail': 'Module overview',
+        quiz: 'Assessment',
+        'topic-report': 'Topic report',
+        'master-report': 'Gradebook'
+      };
+      heading.textContent = titles[activeView] || 'Course modules';
+    }
+  },
+
+  toggleMobileSidebar(button) {
+    const sidebar = document.getElementById('app-sidebar');
+    if (!sidebar || !button) return;
+    const isExpanded = button.getAttribute('aria-expanded') === 'true';
+    sidebar.classList.toggle('mobile-nav-open', !isExpanded);
+    button.setAttribute('aria-expanded', String(!isExpanded));
+  },
+
+  closeMobileSidebar() {
+    const sidebar = document.getElementById('app-sidebar');
+    const button = sidebar?.querySelector('.sidebar-mobile-toggle');
+    sidebar?.classList.remove('mobile-nav-open');
+    button?.setAttribute('aria-expanded', 'false');
+  },
+
+  toggleLandingMenu(button) {
+    const links = document.getElementById('landing-navigation');
+    if (!links || !button) return;
+    const isExpanded = button.getAttribute('aria-expanded') === 'true';
+    links.classList.toggle('is-open', !isExpanded);
+    button.setAttribute('aria-expanded', String(!isExpanded));
+    button.setAttribute('aria-label', isExpanded ? 'Open navigation menu' : 'Close navigation menu');
+  },
+
+  closeLandingMenu() {
+    const links = document.getElementById('landing-navigation');
+    const button = document.querySelector('.landing-menu-toggle');
+    links?.classList.remove('is-open');
+    button?.setAttribute('aria-expanded', 'false');
+    button?.setAttribute('aria-label', 'Open navigation menu');
   },
 
   async loadSubject() {
@@ -164,6 +238,7 @@ const App = {
   },
 
   navigate(view, topicId = null) {
+    this.closeMobileSidebar();
     window.PatternWaves?.stop();
     document.body.classList.remove('pattern-login');
     window.MicroSlats?.start();
@@ -174,6 +249,7 @@ const App = {
     }
     this.state.currentView = view;
     if (topicId) this.state.selectedTopicId = topicId;
+    this.renderSidebarNav();
 
     document.querySelector('.top-nav').style.display = '';
     document.querySelector('.main-wrapper').classList.remove('landing-mode');
@@ -200,8 +276,93 @@ const App = {
     const main = document.getElementById('main-content');
     const isFaculty = this.isFacultyUser();
     const topics = this.state.topics;
+    const completedTopics = topics.filter(topic => topic.status === 'completed').length;
+    const availableTopics = topics.filter(topic => !topic.isLocked && topic.status !== 'completed').length;
+    const lockedTopics = topics.filter(topic => topic.isLocked && topic.status !== 'completed').length;
+    const readyTopics = availableTopics;
+    const questionCount = topics.reduce((total, topic) => total + (Number(topic.questionCount) || 0), 0);
+    const progressPercent = topics.length ? Math.round(completedTopics / topics.length * 100) : 0;
+    const completedPercent = topics.length ? completedTopics / topics.length * 100 : 0;
+    const readyPercent = topics.length ? readyTopics / topics.length * 100 : 0;
+    const lockedPercent = topics.length ? lockedTopics / topics.length * 100 : 0;
 
     let html = `
+      <section class="dashboard-overview" aria-label="Course progress overview">
+        <div class="dashboard-welcome">
+          <div>
+            <span class="dashboard-kicker">${isFaculty ? 'FACULTY WORKSPACE' : 'YOUR LEARNING SPACE'}</span>
+            <h2>${isFaculty ? 'Course at a glance' : `Welcome back, ${this.escapeHtml(this.state.user?.firstName || 'learner')}`}</h2>
+            <p>${isFaculty ? 'Manage course content and monitor assessment readiness.' : 'Keep moving through your modules and build your system administration skills.'}</p>
+          </div>
+          <div class="dashboard-welcome-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48"><path d="M8 34V14a3 3 0 0 1 3-3h26a3 3 0 0 1 3 3v20a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3Z"/><path d="M16 19h16M16 25h10M16 31h7"/></svg>
+          </div>
+        </div>
+        <div class="dashboard-stats">
+          <article class="stat-card">
+            <span class="stat-icon stat-icon-blue" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 5.5v16M8 7h8M8 11h8"/></svg>
+            </span>
+            <span class="stat-label">Course modules</span>
+            <strong>${topics.length}</strong>
+            <span class="stat-caption">${topics.length === 1 ? 'module published' : 'modules published'}</span>
+          </article>
+          ${isFaculty ? `
+            <article class="stat-card">
+              <span class="stat-icon stat-icon-violet" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+              </span>
+              <span class="stat-label">Quiz questions</span>
+              <strong>${questionCount}</strong>
+              <span class="stat-caption">across all modules</span>
+            </article>
+            <article class="stat-card stat-card-progress">
+              <span class="stat-icon stat-icon-amber" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 3v3M5.64 5.64l2.12 2.12M3 12h3M5.64 18.36l2.12-2.12M12 18v3M18.36 18.36l-2.12-2.12M18 12h3M18.36 5.64l-2.12 2.12"/><circle cx="12" cy="12" r="4"/></svg>
+              </span>
+              <span class="stat-label">Passing standard</span>
+              <strong>${this.state.settings?.passingPercentage || 50}%</strong>
+              <span class="stat-caption">minimum score to pass</span>
+            </article>
+          ` : `
+            <article class="stat-card">
+              <span class="stat-icon stat-icon-green" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>
+              </span>
+              <span class="stat-label">Modules completed</span>
+              <strong>${completedTopics}<small> / ${topics.length}</small></strong>
+              <span class="stat-caption">${progressPercent}% of your course</span>
+            </article>
+            <article class="stat-card stat-card-progress">
+              <span class="stat-icon stat-icon-amber" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 3v3M5.64 5.64l2.12 2.12M3 12h3M5.64 18.36l2.12-2.12M12 18v3M18.36 18.36l-2.12-2.12M18 12h3M18.36 5.64l-2.12 2.12"/><circle cx="12" cy="12" r="4"/></svg>
+              </span>
+              <span class="stat-label">Ready to learn</span>
+              <strong>${availableTopics}</strong>
+              <span class="stat-caption">unlocked modules</span>
+            </article>
+          `}
+        </div>
+        ${!isFaculty ? `<section class="dashboard-status-chart" aria-label="Module status overview">
+          <div class="dashboard-chart-heading">
+            <div>
+              <strong>Progress by module</strong>
+              <span>A quick view of your course journey</span>
+            </div>
+            <span class="dashboard-chart-total">${topics.length} total</span>
+          </div>
+          <div class="dashboard-stack-chart" role="img" aria-label="${completedTopics} completed, ${readyTopics} available, ${lockedTopics} locked">
+            <span class="chart-segment chart-completed" style="width:${completedPercent}%"></span>
+            <span class="chart-segment chart-ready" style="width:${readyPercent}%"></span>
+            <span class="chart-segment chart-locked" style="width:${lockedPercent}%"></span>
+          </div>
+          <div class="dashboard-chart-legend">
+            <span><i class="legend-completed"></i>Completed <strong>${completedTopics}</strong></span>
+            <span><i class="legend-ready"></i>Available <strong>${readyTopics}</strong></span>
+            <span><i class="legend-locked"></i>Locked <strong>${lockedTopics}</strong></span>
+          </div>
+        </section>` : ''}
+      </section>
       <div class="card" style="animation-delay:0s">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem">
           <div>
@@ -450,24 +611,52 @@ const App = {
     }
 
     main.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.5rem">
-        <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          All Modules
-        </button>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="App.navigate('topic-report','${t.id}')">📊 Summary</button>
-          <button class="btn btn-accent btn-sm" onclick="App.navigate('quiz','${t.id}')">🎯 Take Quiz</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <div style="border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:1.1rem;margin-bottom:1.25rem">
-          <div class="topic-number">Module ${t.order}</div>
-          <h2 style="font-size:1.5rem;font-weight:900;color:#f0f2ff;letter-spacing:-0.03em;margin-top:0.2rem">${t.title}</h2>
+      <div class="module-page-shell">
+        <div class="module-page-toolbar">
+          <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            All Modules
+          </button>
+          <div class="module-page-actions">
+            <button class="btn btn-ghost btn-sm" onclick="App.navigate('topic-report','${t.id}')">📊 Summary</button>
+            <button class="btn btn-accent btn-sm" onclick="App.navigate('quiz','${t.id}')">🎯 Take Quiz</button>
+          </div>
         </div>
 
-        <div class="tabs">
+        <section class="module-feature-panel">
+          <div class="module-feature-copy">
+            <span class="module-feature-kicker">LEARNING UNIT <i></i> ${t.order}</span>
+            <h2>${this.escapeHtml(t.title)}</h2>
+            <p>Explore the lesson, course materials, interactive slides, and key takeaways for this module.</p>
+            <div class="module-feature-tags">
+              <span><i class="feature-tag-blue"></i>Guided lesson</span>
+              <span><i class="feature-tag-teal"></i>Knowledge check</span>
+              ${isFaculty ? '<span><i class="feature-tag-violet"></i>Faculty tools enabled</span>' : ''}
+            </div>
+          </div>
+          <div class="module-feature-art" aria-hidden="true">
+            <svg viewBox="0 0 180 150">
+              <path class="feature-orbit orbit-outer" d="M90 13a62 62 0 1 1 0 124 62 62 0 0 1 0-124Z"/>
+              <path class="feature-orbit orbit-inner" d="M90 29a46 46 0 1 1 0 92 46 46 0 0 1 0-92Z"/>
+              <path class="feature-circuit" d="M21 75h26m86 0h26M90 3v22m0 100v22M42 27l16 16m64 64 16 16m0-96-16 16m-64 64-16 16"/>
+              <rect class="feature-chip" x="65" y="50" width="50" height="50" rx="13"/>
+              <path class="feature-chip-mark" d="M78 64h24v22H78zM83 70h14m-14 7h10"/>
+              <circle class="feature-node node-one" cx="24" cy="75" r="4"/>
+              <circle class="feature-node node-two" cx="155" cy="37" r="4"/>
+              <circle class="feature-node node-three" cx="139" cy="126" r="4"/>
+            </svg>
+          </div>
+        </section>
+
+        <div class="card module-workbench-card">
+          <div class="module-workbench-heading">
+            <div>
+              <span class="module-workbench-kicker">MODULE WORKSPACE</span>
+              <h3>Learning resources</h3>
+            </div>
+            <span class="module-resource-count">04 <span>resources</span></span>
+          </div>
+          <div class="tabs">
           <button class="tab-btn ${activeTab === 'lesson' ? 'active' : ''}" onclick="App.setTopicTab('lesson')">
             📖 Lesson Notes
           </button>
@@ -484,6 +673,7 @@ const App = {
 
         <div id="topic-tab-content" style="animation:fadeInUp 0.3s ease both">
           ${contentHtml}
+        </div>
         </div>
       </div>
     `;
@@ -536,17 +726,33 @@ const App = {
         ` : ''}
 
         <!-- Navigation -->
-        <nav class="landing-nav">
+        <nav class="landing-nav" aria-label="Landing page navigation">
           <div class="landing-nav-inner">
             <div class="landing-brand">
-              <div class="landing-brand-icon">🖥️</div>
+              <div class="landing-brand-icon" aria-hidden="true">🖥️</div>
               <span class="landing-brand-text">System Administration &amp; Maintenance</span>
             </div>
-            <div class="landing-nav-links">
-              <a href="#" class="landing-link active" onclick="event.preventDefault()">Home</a>
-              <a href="#" class="landing-link" onclick="event.preventDefault()">Learn</a>
-              <a href="#" class="landing-link" onclick="event.preventDefault()">Features</a>
-              <button class="btn btn-primary btn-sm" onclick="App.renderAuth('register')" style="border-radius:8px;padding:0.45rem 1.1rem">Register</button>
+            <div class="landing-nav-actions">
+              <div class="landing-nav-links" id="landing-navigation">
+                <a href="#" class="landing-link active" onclick="event.preventDefault();App.closeLandingMenu()">Home</a>
+                <a href="#" class="landing-link" onclick="event.preventDefault();App.closeLandingMenu()">Learn</a>
+                <a href="#" class="landing-link" onclick="event.preventDefault();App.closeLandingMenu()">Features</a>
+                <button class="btn btn-secondary btn-sm landing-register-btn" onclick="App.closeLandingMenu();App.renderAuth('register')">Register</button>
+              </div>
+              <button class="btn btn-primary btn-sm landing-login-btn" onclick="App.closeLandingMenu();App.renderAuth('login')" aria-label="Go to login">Login</button>
+              <button
+                type="button"
+                class="landing-menu-toggle"
+                aria-controls="landing-navigation"
+                aria-expanded="false"
+                aria-label="Open navigation menu"
+                onclick="App.toggleLandingMenu(this)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path class="menu-icon-lines" d="M4 6h16M4 12h16M4 18h16"/>
+                  <path class="menu-icon-close" d="m6 6 12 12M18 6 6 18"/>
+                </svg>
+              </button>
             </div>
           </div>
         </nav>
@@ -907,7 +1113,14 @@ const App = {
     setTimeout(() => { toast.style.animation = 'toast-in 0.2s ease reverse both'; setTimeout(() => toast.remove(), 200); }, 4000);
   },
 
-  bindEvents() {}
+  bindEvents() {
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        this.closeLandingMenu();
+        this.closeMobileSidebar();
+      }
+    });
+  }
 };
 
 window.App = App;

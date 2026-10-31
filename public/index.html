@@ -15,7 +15,9 @@
   <header class="top-nav">
     <div class="nav-container">
       <div class="brand-section" style="cursor: pointer;" onclick="if(App.state.user) App.navigate('topics')">
-        <div class="brand-icon">🖥️</div>
+        <div class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6v6H9zM9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+        </div>
         <div class="brand-text">
           <h1>System Administration &amp; Maintenance</h1>
           <p>Modular Learning & Automated Progression System</p>
@@ -27,16 +29,49 @@
     </div>
   </header>
 
-  <!-- Main Application Body -->
-  <main class="main-wrapper">
-    <!-- Secondary Subject Banner (Subject Name, Code, Term, Year Level) -->
-    <div id="subject-banner-area"></div>
+  <!-- Authenticated application shell -->
+  <div class="app-layout">
+    <aside class="app-sidebar" id="app-sidebar" aria-label="Course navigation">
+      <div class="sidebar-section-label">Workspace</div>
+      <button
+        type="button"
+        class="sidebar-mobile-toggle"
+        aria-controls="sidebar-nav"
+        aria-expanded="false"
+        onclick="App.toggleMobileSidebar(this)"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <span>Workspace menu</span>
+        <svg class="sidebar-mobile-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+      </button>
+      <nav class="sidebar-nav" id="sidebar-nav" aria-label="Main navigation"></nav>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-course-card">
+        <span class="sidebar-course-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6v6H9zM9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+        </span>
+        <div>
+          <strong>Course workspace</strong>
+          <span>System Administration</span>
+        </div>
+        <span class="sidebar-live-indicator" aria-label="Workspace ready"></span>
+      </div>
+      <div class="sidebar-footer">Learning &amp; Assessment Portal</div>
+    </aside>
 
-    <!-- Active View Area (TOC, Topic Detail, Quiz, Reports) -->
-    <div id="main-content">
-      <!-- Loaded dynamically via SPA router -->
-    </div>
-  </main>
+    <main class="main-wrapper">
+      <div class="workspace-heading">
+        <div>
+          <span class="workspace-eyebrow">LEARNING PORTAL</span>
+          <h1 id="workspace-title">Course modules</h1>
+        </div>
+        <div class="workspace-heading-meta" id="workspace-heading-meta"></div>
+      </div>
+
+      <div id="subject-banner-area"></div>
+      <div id="main-content"></div>
+    </main>
+  </div>
 
   <!-- Modal Container Root -->
   <div id="modal-root"></div>
@@ -55,4 +90,3 @@
   <script src="/js/faculty.js"></script>
 </body>
 </html>
-

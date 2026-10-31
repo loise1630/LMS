@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const url = require('url');
 const { Pool } = require('pg');
 const AdmZip = require('adm-zip');
+const { parseQuizImportText } = require('./quiz-import-parser');
 
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'data', 'db.json');
@@ -960,48 +961,16 @@ const server = http.createServer(async (req, res) => {
         let skippedQuestionCount = 0;
 
         if (typeof body.rawText === 'string') {
-          const lines = body.rawText.split('\n').map(l => l.trim()).filter(Boolean);
-          let currentQ = null;
-          const addValidQuestion = () => {
-            if (!currentQ) return;
-            if (!currentQ.question || currentQ.options.length < 2 || !Number.isInteger(currentQ.correctAnswer) ||
-                currentQ.correctAnswer < 0 || currentQ.correctAnswer >= currentQ.options.length) {
-              skippedQuestionCount++;
-              return;
-            }
-            importedQuestions.push(currentQ);
-          };
-
-          for (const line of lines) {
-            if (/^\d+[\.\)]\s*(.*)/.test(line)) {
-              addValidQuestion();
-              const match = line.match(/^\d+[\.\)]\s*(.*)/);
-              currentQ = {
-                id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                question: match[1],
-                options: [],
-                correctAnswer: null,
-                explanation: ''
-              };
-            } else if (/^[a-dA-D][\.\)]\s*(.*)/.test(line) && currentQ) {
-              const optMatch = line.match(/^([a-dA-D])[\.\)]\s*(.*)/);
-              currentQ.options.push(optMatch[2]);
-            } else if (/^(?:Correct\s+)?Answer:\s*([a-dA-D]|\d+)/i.test(line) && currentQ) {
-              const ansMatch = line.match(/^(?:Correct\s+)?Answer:\s*([a-dA-D]|\d+)/i);
-              const val = ansMatch[1];
-              if (isNaN(val)) {
-                currentQ.correctAnswer = val.toUpperCase().charCodeAt(0) - 65;
-              } else {
-                const numericAnswer = parseInt(val, 10);
-                currentQ.correctAnswer = numericAnswer > 0 ? numericAnswer - 1 : numericAnswer;
-              }
-            }
-          }
-          addValidQuestion();
+          const parsed = parseQuizImportText(body.rawText);
+          importedQuestions = parsed.questions;
+          skippedQuestionCount = parsed.skippedCount;
         }
 
         if (importedQuestions.length === 0) {
-          return sendJson(res, 400, { success: false, message: 'No valid questions found. Add numbered questions, at least two options, and a valid Answer: line.' });
+          return sendJson(res, 400, {
+            success: false,
+            message: 'No questions could be read. Use numbered questions with 2–4 A)–D) options and an answer such as “Answer: B”. Review the extracted text for missing or garbled content.'
+          });
         }
 
         const existingQuestions = body.mode === 'replace' ? [] : (topic.quizQuestions || []);

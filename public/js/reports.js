@@ -31,6 +31,7 @@ const Reports = {
       const s = res.subject;
       const t = res.topic;
       const records = res.records || [];
+      const generatedAt = new Date();
 
       let rowsHtml = '';
       records.forEach((r, idx) => {
@@ -52,16 +53,25 @@ const Reports = {
       });
 
       main.innerHTML = `
+        <div class="report-page report-topic-page">
         <!-- Print Header -->
         <div class="print-header">
-          <h2>${App.escapeHtml(s.name)} (${App.escapeHtml(s.code)})</h2>
-          <h3>OFFICIAL TOPIC QUIZ SUMMARY REPORT</h3>
-          <p>${App.escapeHtml(s.term)} | ${App.escapeHtml(s.yearLevel)}</p>
-          <p><strong>Topic:</strong> ${App.escapeHtml(t.title)} | <strong>Passing Score:</strong> ${t.passingPercentage}%</p>
-          <p><small>Generated on: ${new Date().toLocaleString()}</small></p>
+          <div class="report-document-brand">ACADEMIC RECORDS <span>•</span> COURSE ASSESSMENT</div>
+          <h2>${App.escapeHtml(s.name)} <span>(${App.escapeHtml(s.code)})</span></h2>
+          <h3>OFFICIAL TOPIC QUIZ SUMMARY</h3>
+          <div class="report-document-meta">
+            <span><strong>Term</strong>${App.escapeHtml(s.term || '—')}</span>
+            <span><strong>Year level</strong>${App.escapeHtml(s.yearLevel || '—')}</span>
+            <span><strong>Topic</strong>${App.escapeHtml(t.title)}</span>
+            <span><strong>Generated</strong>${generatedAt.toLocaleString()}</span>
+          </div>
+          <div class="report-summary-grid">
+            <div class="report-summary-item"><strong>${records.length}</strong><span>Registered students</span></div>
+            <div class="report-summary-item"><strong>${t.passingPercentage}%</strong><span>Passing standard</span></div>
+          </div>
         </div>
 
-        <div class="no-print" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div class="report-toolbar no-print" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
           <div style="display: flex; gap: 0.5rem; align-items: center;">
             <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅️ Back to Table of Contents</button>
             <button class="btn btn-outline btn-sm" onclick="App.navigate('topic-detail', '${t.id}')">📖 Open Lesson</button>
@@ -81,8 +91,8 @@ const Reports = {
           </div>
         </div>
 
-        <div class="card">
-          <div class="no-print" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+        <div class="card report-content-card">
+          <div class="report-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
             <div>
               <span class="topic-number">Report Module</span>
               <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--gray-900);">${App.escapeHtml(t.title)} - Quiz Summary</h2>
@@ -92,7 +102,7 @@ const Reports = {
             </div>
 
             <!-- Whiteboard Sorting: Sorted by surname, Sorted by score -->
-            <div style="display: flex; align-items: center; gap: 0.75rem; background: var(--gray-100); padding: 0.5rem 0.75rem; border-radius: var(--radius-md);">
+            <div class="report-sort-controls no-print" style="display: flex; align-items: center; gap: 0.75rem; background: var(--gray-100); padding: 0.5rem 0.75rem; border-radius: var(--radius-md);">
               <span style="font-size: 0.8rem; font-weight: 700; color: var(--gray-700);">SORT BY:</span>
               <button class="btn ${this.state.topicSortBy === 'surname' ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="Reports.changeTopicSort('surname')">
                 🔤 Surname ${this.state.topicSortBy === 'surname' ? (this.state.topicSortOrder === 'asc' ? '▲' : '▼') : ''}
@@ -125,15 +135,18 @@ const Reports = {
 
           <!-- Print Signatures Section -->
           <div class="print-signatures">
-            <div style="text-align: center; width: 200px;">
-              <div style="border-bottom: 1px solid #000; height: 35px;"></div>
-              <p style="font-weight: 700; font-size: 9pt; margin-top: 4px;">Prepared by: Instructor</p>
+            <div class="print-signature">
+              <div class="signature-line"></div>
+              <p>Prepared by</p>
+              <strong>Faculty / Course Instructor</strong>
             </div>
-            <div style="text-align: center; width: 200px;">
-              <div style="border-bottom: 1px solid #000; height: 35px;"></div>
-              <p style="font-weight: 700; font-size: 9pt; margin-top: 4px;">Verified by: Department Chair</p>
+            <div class="print-signature">
+              <div class="signature-line"></div>
+              <p>Verified by</p>
+              <strong>Department Chair</strong>
             </div>
           </div>
+        </div>
         </div>
       `;
     } catch (e) {
@@ -163,6 +176,7 @@ const Reports = {
       const s = res.subject;
       const topics = res.topics || [];
       const students = res.students || [];
+      const generatedAt = new Date();
 
       let headerColsHtml = '';
       topics.forEach(t => {
@@ -204,16 +218,24 @@ const Reports = {
       });
 
       main.innerHTML = `
-        <!-- Print Header -->
+        <div class="report-page report-master-page">
         <div class="print-header">
-          <h2>${App.escapeHtml(s.name)} (${App.escapeHtml(s.code)})</h2>
-          <h3>MASTER SUMMARY OF ALL QUIZ SCORES PER STUDENT</h3>
-          <p>${App.escapeHtml(s.term)} | ${App.escapeHtml(s.yearLevel)}</p>
-          <p><strong>Total Course Topics:</strong> ${topics.length} | <strong>Passing Standard:</strong> ${res.passingPercentage || 50}% per module</p>
-          <p><small>Official Record Generated on: ${new Date().toLocaleString()}</small></p>
+          <div class="report-document-brand">ACADEMIC RECORDS <span>•</span> COURSE ASSESSMENT</div>
+          <h2>${App.escapeHtml(s.name)} <span>(${App.escapeHtml(s.code)})</span></h2>
+          <h3>MASTER SUMMARY OF QUIZ SCORES PER STUDENT</h3>
+          <div class="report-document-meta">
+            <span><strong>Term</strong>${App.escapeHtml(s.term || '—')}</span>
+            <span><strong>Year level</strong>${App.escapeHtml(s.yearLevel || '—')}</span>
+            <span><strong>Generated</strong>${generatedAt.toLocaleString()}</span>
+          </div>
+          <div class="report-summary-grid">
+            <div class="report-summary-item"><strong>${students.length}</strong><span>Total students</span></div>
+            <div class="report-summary-item"><strong>${topics.length}</strong><span>Course topics</span></div>
+            <div class="report-summary-item"><strong>${res.passingPercentage || 50}%</strong><span>Passing standard</span></div>
+          </div>
         </div>
 
-        <div class="no-print" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div class="report-toolbar no-print" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
           <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅️ Back to Table of Contents</button>
 
           <!-- Whiteboard Requirement #8: Print, PDF, Spreadsheet -->
@@ -230,8 +252,8 @@ const Reports = {
           </div>
         </div>
 
-        <div class="card">
-          <div class="no-print" style="border-bottom: 1px solid var(--gray-200); padding-bottom: 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div class="card report-content-card">
+          <div class="report-card-header" style="border-bottom: 1px solid var(--gray-200); padding-bottom: 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
             <div>
               <span class="topic-number">Institutional Class Record</span>
               <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--gray-900);">
@@ -265,15 +287,16 @@ const Reports = {
 
           <!-- Print Signatures Section -->
           <div class="print-signatures">
-            <div style="text-align: center; width: 220px;">
-              <div style="border-bottom: 1px solid #000; height: 40px;"></div>
-              <p style="font-weight: 700; font-size: 9pt; margin-top: 5px;">Faculty / Course Instructor</p>
+            <div class="print-signature">
+              <div class="signature-line"></div>
+              <strong>Faculty / Course Instructor</strong>
             </div>
-            <div style="text-align: center; width: 220px;">
-              <div style="border-bottom: 1px solid #000; height: 40px;"></div>
-              <p style="font-weight: 700; font-size: 9pt; margin-top: 5px;">College Dean / Department Chair</p>
+            <div class="print-signature">
+              <div class="signature-line"></div>
+              <strong>College Dean / Department Chair</strong>
             </div>
           </div>
+        </div>
         </div>
       `;
     } catch (e) {
@@ -311,4 +334,3 @@ const Reports = {
 };
 
 window.Reports = Reports;
-
