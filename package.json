@@ -15,5 +15,9 @@
     "gradebook"
   ],
   "author": "ITPE Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "ogl": "^1.0.11",
+    "pg": "^8.23.1"
+  }
 }

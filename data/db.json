@@ -19,10 +19,10 @@
     {
       "id": "usr_stu_1",
       "idNumber": "TUPT-23-1096",
-      "password": "student123",
+      "password": "Garcia",
       "role": "student",
-      "firstName": "Juan",
-      "lastName": "Dela Cruz",
+      "firstName": "Gerald Loise",
+      "lastName": "Garcia",
       "privacyAgreed": true,
       "privacyAgreedAt": "2026-08-20T09:15:00.000Z"
     },

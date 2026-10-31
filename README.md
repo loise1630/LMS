@@ -22,13 +22,16 @@ A lightweight, self-contained educational web application implementing the white
 
 ## 🚀 How to Run
 
-Zero extra installation required (uses built-in Node.js runtime):
+The server stores application data in a local PostgreSQL database. It can run without an internet connection once Node.js, the `pg` dependency, and PostgreSQL are installed on the computer.
 
 ```powershell
+createdb itpe_portal
+$env:DATABASE_URL = "postgres://postgres:YOUR_POSTGRES_PASSWORD@localhost:5432/itpe_portal"
+npm install
 npm start
-# OR
-node server.js
 ```
+
+The first start creates the database table and imports existing `data/db.json` data into PostgreSQL. If no JSON data exists, demo data is created. Keep PostgreSQL running locally while using the app. Set `DATABASE_URL` to match the PostgreSQL username and password on your machine.
 
 Open your browser at:
 👉 **`http://localhost:3000`**

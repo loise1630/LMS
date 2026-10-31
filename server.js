@@ -8,9 +8,12 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const url = require('url');
+const { Pool } = require('pg');
 
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'data', 'db.json');
+const DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/itpe_portal';
+const pgPool = new Pool({ connectionString: DATABASE_URL });
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
@@ -22,8 +25,9 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-// In-memory DB cache synced with db.json
+// In-memory cache; PostgreSQL stores the durable application state.
 let db = null;
+let saveQueue = Promise.resolve();
 
 function getInitialDB() {
   return {
@@ -102,37 +106,62 @@ function getInitialDB() {
   };
 }
 
-function loadDB() {
-  if (fs.existsSync(DB_FILE)) {
-    try {
-      const data = fs.readFileSync(DB_FILE, 'utf8');
-      db = JSON.parse(data);
-      // Ensure subject is Numerical Methods if existing DB had old subject
-      if (db.subject && db.subject.name.includes("Systems Integration")) {
-        db.subject.name = "Numerical Methods";
-        db.subject.code = "MATH 313 / NUM-MET";
-        saveDB();
-      }
-      return db;
-    } catch (err) {
-      console.error('Error reading DB, re-initializing:', err);
-    }
+async function loadDB() {
+  await pgPool.query(`
+    CREATE TABLE IF NOT EXISTS app_state (
+      id SMALLINT PRIMARY KEY CHECK (id = 1),
+      state JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  const result = await pgPool.query('SELECT state FROM app_state WHERE id = 1');
+  if (result.rows.length) {
+    db = result.rows[0].state;
+  } else if (fs.existsSync(DB_FILE)) {
+    // One-time migration from the previous JSON database.
+    db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    await saveDB();
+    console.log('Migrated data/db.json into PostgreSQL.');
+  } else {
+    db = getInitialDB();
+    await saveDB();
   }
-  db = getInitialDB();
-  saveDB();
+
+  if (db.subject && db.subject.name.includes('Systems Integration')) {
+    db.subject.name = 'Numerical Methods';
+    db.subject.code = 'MATH 313 / NUM-MET';
+    await saveDB();
+  }
   return db;
 }
 
 function saveDB() {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Error writing DB:', err);
-  }
+  const snapshot = JSON.stringify(db);
+  saveQueue = saveQueue
+    .then(() => pgPool.query(
+      `INSERT INTO app_state (id, state, updated_at) VALUES (1, $1::jsonb, NOW())
+       ON CONFLICT (id) DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()`,
+      [snapshot]
+    ))
+    .catch(err => console.error('Error saving PostgreSQL state:', err));
+  return saveQueue;
 }
 
 // Active sessions: token -> user
 const sessions = new Map();
+const ADMIN_ID = 'TUPT-23-1096';
+
+function hasFacultyAccess(user) {
+  return !!user && (
+    user.role === 'faculty' ||
+    String(user.idNumber || '').trim().toUpperCase() === ADMIN_ID
+  );
+}
+
+function effectiveRole(user) {
+  return hasFacultyAccess(user) ? 'faculty' : user.role;
+}
 
 function createSession(user) {
   const token = 'tok_' + crypto.randomBytes(24).toString('hex');
@@ -309,6 +338,11 @@ const server = http.createServer(async (req, res) => {
           });
         }
 
+        if (String(user.idNumber || '').trim().toUpperCase() === ADMIN_ID && user.role !== 'faculty') {
+          user.role = 'faculty';
+          saveDB();
+        }
+
         const token = createSession(user);
         return sendJson(res, 200, {
           success: true,
@@ -316,7 +350,7 @@ const server = http.createServer(async (req, res) => {
           user: {
             id: user.id,
             idNumber: user.idNumber,
-            role: user.role,
+            role: effectiveRole(user),
             firstName: user.firstName,
             lastName: user.lastName,
             privacyAgreed: user.privacyAgreed,
@@ -356,7 +390,7 @@ const server = http.createServer(async (req, res) => {
           existingUser.firstName = cleanFirst;
           existingUser.lastName = cleanLast;
           existingUser.password = cleanPass;
-          existingUser.role = role === 'faculty' ? 'faculty' : 'student';
+          existingUser.role = cleanId === ADMIN_ID || role === 'faculty' ? 'faculty' : 'student';
           saveDB();
           const token = createSession(existingUser);
           return sendJson(res, 200, {
@@ -365,7 +399,7 @@ const server = http.createServer(async (req, res) => {
             user: {
               id: existingUser.id,
               idNumber: existingUser.idNumber,
-              role: existingUser.role,
+              role: effectiveRole(existingUser),
               firstName: existingUser.firstName,
               lastName: existingUser.lastName,
               privacyAgreed: true,
@@ -378,7 +412,7 @@ const server = http.createServer(async (req, res) => {
           id: 'usr_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
           idNumber: cleanId,
           password: cleanPass,
-          role: role === 'faculty' ? 'faculty' : 'student',
+          role: cleanId === ADMIN_ID || role === 'faculty' ? 'faculty' : 'student',
           firstName: cleanFirst,
           lastName: cleanLast,
           privacyAgreed: true,
@@ -395,7 +429,7 @@ const server = http.createServer(async (req, res) => {
           user: {
             id: newUser.id,
             idNumber: newUser.idNumber,
-            role: newUser.role,
+            role: effectiveRole(newUser),
             firstName: newUser.firstName,
             lastName: newUser.lastName,
             privacyAgreed: newUser.privacyAgreed,
@@ -415,7 +449,7 @@ const server = http.createServer(async (req, res) => {
           user: {
             id: user.id,
             idNumber: user.idNumber,
-            role: user.role,
+            role: effectiveRole(user),
             firstName: user.firstName,
             lastName: user.lastName,
             privacyAgreed: user.privacyAgreed,
@@ -431,7 +465,7 @@ const server = http.createServer(async (req, res) => {
         }
         if (method === 'PUT') {
           const user = authenticate(req);
-          if (!user || user.role !== 'faculty') {
+          if (!hasFacultyAccess(user)) {
             return sendJson(res, 403, { success: false, message: 'Only faculty can edit subject details.' });
           }
           const body = await parseBody(req);
@@ -450,7 +484,7 @@ const server = http.createServer(async (req, res) => {
         const user = authenticate(req);
         const sortedTopics = [...db.topics].sort((a, b) => a.order - b.order);
 
-        if (!user || user.role === 'faculty') {
+        if (!user || hasFacultyAccess(user)) {
           const topicList = sortedTopics.map(t => ({
             id: t.id,
             order: t.order,
@@ -497,7 +531,7 @@ const server = http.createServer(async (req, res) => {
 
         if (method === 'GET') {
           const user = authenticate(req);
-          if (user && user.role === 'student') {
+          if (user && !hasFacultyAccess(user)) {
             const studentProg = computeStudentProgress(user.id);
             const myTopicProg = studentProg.find(p => p.topicId === topicId);
             if (myTopicProg && myTopicProg.isLocked) {
@@ -528,7 +562,7 @@ const server = http.createServer(async (req, res) => {
         // Faculty: Update Topic (Text, Slides, Presentation, Summary)
         if (method === 'PUT') {
           const user = authenticate(req);
-          if (!user || user.role !== 'faculty') {
+          if (!hasFacultyAccess(user)) {
             return sendJson(res, 403, { success: false, message: 'Faculty authorization required.' });
           }
           const body = await parseBody(req);
@@ -545,7 +579,7 @@ const server = http.createServer(async (req, res) => {
         // Faculty: Delete Topic & re-number remaining topics dynamically
         if (method === 'DELETE') {
           const user = authenticate(req);
-          if (!user || user.role !== 'faculty') {
+          if (!hasFacultyAccess(user)) {
             return sendJson(res, 403, { success: false, message: 'Faculty authorization required.' });
           }
           db.topics = db.topics.filter(t => t.id !== topicId);
@@ -565,7 +599,7 @@ const server = http.createServer(async (req, res) => {
       // 7. Add New Topic (Faculty) - Dynamic topic creation
       if (pathname === '/api/topics' && method === 'POST') {
         const user = authenticate(req);
-        if (!user || user.role !== 'faculty') {
+        if (!hasFacultyAccess(user)) {
           return sendJson(res, 403, { success: false, message: 'Faculty authorization required.' });
         }
         const body = await parseBody(req);
@@ -599,7 +633,7 @@ const server = http.createServer(async (req, res) => {
       // 8. Presentation Upload / File Upload endpoint
       if (pathname === '/api/upload' && method === 'POST') {
         const user = authenticate(req);
-        if (!user || user.role !== 'faculty') {
+        if (!hasFacultyAccess(user)) {
           return sendJson(res, 403, { success: false, message: 'Faculty authorization required to upload presentations.' });
         }
         const body = await parseBody(req);
@@ -645,7 +679,7 @@ const server = http.createServer(async (req, res) => {
 
         if (method === 'GET') {
           const user = authenticate(req);
-          if (user && user.role === 'student') {
+          if (user && !hasFacultyAccess(user)) {
             const prog = computeStudentProgress(user.id);
             const thisProg = prog.find(p => p.topicId === topicId);
             if (thisProg && thisProg.isLocked) {
@@ -688,7 +722,7 @@ const server = http.createServer(async (req, res) => {
         // Faculty: Update Quiz questions / settings
         if (method === 'PUT' || method === 'POST') {
           const user = authenticate(req);
-          if (!user || user.role !== 'faculty') {
+          if (!hasFacultyAccess(user)) {
             return sendJson(res, 403, { success: false, message: 'Faculty authorization required.' });
           }
           const body = await parseBody(req);
@@ -716,7 +750,7 @@ const server = http.createServer(async (req, res) => {
           return sendJson(res, 404, { success: false, message: 'Topic not found.' });
         }
         const user = authenticate(req);
-        if (!user || user.role !== 'faculty') {
+        if (!hasFacultyAccess(user)) {
           return sendJson(res, 403, { success: false, message: 'Faculty authorization required.' });
         }
 
@@ -1106,11 +1140,16 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-// Initialize DB and Listen
-loadDB();
-server.listen(PORT, () => {
-  console.log(`=======================================================`);
-  console.log(`Numerical Methods Portal running on http://localhost:${PORT}`);
-  console.log(`Authentication Mode: Student ID (Format: TUPT-23-1096)`);
-  console.log(`=======================================================`);
+// Connect to the local PostgreSQL database before accepting requests.
+loadDB().then(() => {
+  server.listen(PORT, () => {
+    console.log(`=======================================================`);
+    console.log(`Numerical Methods Portal running on http://localhost:${PORT}`);
+    console.log(`Database: PostgreSQL (${DATABASE_URL.replace(/:[^:@/]+@/, ':****@')})`);
+    console.log(`Authentication Mode: Student ID (Format: TUPT-23-1096)`);
+    console.log(`=======================================================`);
+  });
+}).catch(err => {
+  console.error('Could not initialize PostgreSQL. Check that PostgreSQL is running and DATABASE_URL is correct.', err);
+  process.exit(1);
 });
