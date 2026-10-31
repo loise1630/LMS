@@ -86,6 +86,7 @@ const Quiz = {
       .sort(() => Math.random() - 0.5);
 
     let html = `
+      <div class="assessment-page">
       <div class="quiz-header">
         <div>
           <div style="font-size:0.7rem;font-weight:700;color:#06b6d4;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Active Assessment</div>
@@ -144,6 +145,7 @@ const Quiz = {
           </button>
         </div>
       </form>
+      </div>
     `;
 
     main.innerHTML = html;
@@ -225,7 +227,7 @@ const Quiz = {
     const isPassed = result.passed;
 
     const bannerHtml = isPassed ? `
-      <div style="background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.1));border:1px solid rgba(16,185,129,0.35);border-radius:16px;padding:1.75rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:1.25rem">
+      <div class="quiz-result-banner is-passed" style="background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.1));border:1px solid rgba(16,185,129,0.35);border-radius:16px;padding:1.75rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:1.25rem">
         <div style="width:56px;height:56px;border-radius:14px;background:rgba(16,185,129,0.2);border:1px solid rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0">🎉</div>
         <div>
           <h3 style="font-size:1.3rem;font-weight:900;color:#34d399;margin-bottom:0.35rem;letter-spacing:-0.02em">PASSED! Excellent Work!</h3>
@@ -237,7 +239,7 @@ const Quiz = {
         </div>
       </div>
     ` : `
-      <div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(239,68,68,0.06));border:1px solid rgba(239,68,68,0.35);border-radius:16px;padding:1.75rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:1.25rem">
+      <div class="quiz-result-banner is-failed" style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(239,68,68,0.06));border:1px solid rgba(239,68,68,0.35);border-radius:16px;padding:1.75rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:1.25rem">
         <div style="width:56px;height:56px;border-radius:14px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0">⚠️</div>
         <div>
           <h3 style="font-size:1.3rem;font-weight:900;color:#f87171;margin-bottom:0.35rem;letter-spacing:-0.02em">Quiz Not Passed — Review Required</h3>
@@ -253,7 +255,7 @@ const Quiz = {
     const itemsHtml = '<p>Answers are not shown to protect the quiz.</p>';
 
     main.innerHTML = `
-      <div class="card">
+      <div class="card quiz-results-card">
         ${bannerHtml}
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.75rem">
