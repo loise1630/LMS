@@ -6,7 +6,7 @@ const Quiz = {
   state: {
     topicId: null,
     topicTitle: '',
-    settings: { timeLimitMinutes: 10, passingPercentage: 75 },
+    settings: { timeLimitMinutes: 10, passingPercentage: 50 },
     questions: [],
     userAnswers: {},
     timerSecondsLeft: 600,
@@ -25,7 +25,7 @@ const Quiz = {
       if (!res.success) return;
 
       this.state.topicTitle = res.topicTitle;
-      this.state.settings = res.quizSettings || { timeLimitMinutes: 10, passingPercentage: 75 };
+      this.state.settings = res.quizSettings || { timeLimitMinutes: 10, passingPercentage: 50 };
       this.state.questions = res.questions || [];
 
       if (this.state.questions.length === 0) {
@@ -39,7 +39,7 @@ const Quiz = {
       this.startTimer();
     } catch (err) {
       if (err.message && err.message.includes('locked')) {
-        App.toast('Topic is locked — pass the previous quiz with 75% first!', 'danger');
+        App.toast(`Topic is locked — pass the previous quiz with ${App.state.settings?.passingPercentage || 50}% first!`, 'danger');
         App.navigate('topics');
       }
     }
@@ -76,12 +76,20 @@ const Quiz = {
     const main = document.getElementById('main-content');
     const qCount = this.state.questions.length;
     const passScore = Math.ceil(qCount * (this.state.settings.passingPercentage / 100));
+    const displayQuestions = this.state.questions
+      .map(question => ({
+        ...question,
+        displayOptions: question.options
+          .map((text, originalIndex) => ({ text, originalIndex }))
+          .sort(() => Math.random() - 0.5)
+      }))
+      .sort(() => Math.random() - 0.5);
 
     let html = `
       <div class="quiz-header">
         <div>
           <div style="font-size:0.7rem;font-weight:700;color:#06b6d4;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Active Assessment</div>
-          <h2 style="font-size:1.2rem;font-weight:800;color:#f0f2ff;letter-spacing:-0.02em">${this.state.topicTitle}</h2>
+          <h2 style="font-size:1.2rem;font-weight:800;color:#f0f2ff;letter-spacing:-0.02em">${App.escapeHtml(this.state.topicTitle)}</h2>
           <div style="font-size:0.8rem;color:rgba(165,180,252,0.6);display:flex;gap:1rem;margin-top:0.25rem;flex-wrap:wrap">
             <span>📋 <strong style="color:#a5b4fc">${qCount}</strong> items</span>
             <span>🎯 Pass: <strong style="color:#a5b4fc">${this.state.settings.passingPercentage}%</strong> (${passScore}/${qCount} correct)</span>
@@ -95,13 +103,13 @@ const Quiz = {
 
       <div class="alert alert-info" style="margin-bottom:1.25rem">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-        <span><strong>Whiteboard Rule:</strong> Score at least <strong>75%</strong> to unlock the next module. Below 75% requires topic review before retake.</span>
+        <span><strong>Course Rule:</strong> Score at least <strong>${this.state.settings.passingPercentage}%</strong> to unlock the next module. Below this requires topic review before retake.</span>
       </div>
 
       <form id="quiz-form" onsubmit="Quiz.handleFormSubmit(event)">
     `;
 
-    this.state.questions.forEach((q, idx) => {
+    displayQuestions.forEach((q, idx) => {
       const letters = ['A', 'B', 'C', 'D', 'E'];
       html += `
         <div class="question-card" style="animation-delay:${idx * 0.04}s">
@@ -109,15 +117,15 @@ const Quiz = {
             <span style="font-size:0.7rem;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:0.08em">Question ${idx + 1} of ${qCount}</span>
             <div id="answer-dot-${q.id}" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.1);transition:background 0.2s ease"></div>
           </div>
-          <div class="question-text">${q.question}</div>
+          <div class="question-text">${App.escapeHtml(q.question)}</div>
           <div class="options-list">
       `;
-      q.options.forEach((opt, optIdx) => {
+      q.displayOptions.forEach(({ text: opt, originalIndex: optIdx }, displayIndex) => {
         html += `
           <label class="option-item" id="opt-label-${q.id}-${optIdx}">
             <input type="radio" name="answer_${q.id}" value="${optIdx}" onchange="Quiz.selectOption('${q.id}', ${optIdx})" />
-            <span class="option-letter">${letters[optIdx] || optIdx + 1}</span>
-            <span style="font-size:0.92rem;color:rgba(165,180,252,0.85)">${opt}</span>
+            <span class="option-letter">${letters[displayIndex] || displayIndex + 1}</span>
+            <span style="font-size:0.92rem;color:rgba(165,180,252,0.85)">${App.escapeHtml(opt)}</span>
           </label>
         `;
       });
@@ -139,6 +147,18 @@ const Quiz = {
     `;
 
     main.innerHTML = html;
+    main.style.userSelect = 'none';
+    main.style.webkitUserSelect = 'none';
+    main.classList.add('quiz-no-copy');
+    const blockAction = event => event.preventDefault();
+    main.oncopy = blockAction;
+    main.oncut = blockAction;
+    main.oncontextmenu = blockAction;
+    main.onkeydown = event => {
+      if ((event.ctrlKey || event.metaKey) && ['a', 'c', 'p', 's', 'u', 'x'].includes(event.key.toLowerCase())) {
+        event.preventDefault();
+      }
+    };
   },
 
   selectOption(qId, optIdx) {
@@ -171,17 +191,19 @@ const Quiz = {
   async submitQuiz(isAuto = false) {
     if (this.state.isSubmitting) return;
     this.state.isSubmitting = true;
+    const submittedTopicId = this.state.topicId;
     clearInterval(this.state.timerInterval);
 
     const btn = document.getElementById('submit-quiz-btn');
     if (btn) { btn.classList.add('btn-loading'); btn.textContent = 'Submitting...'; }
 
     try {
-      const res = await App.api(`/api/quizzes/${this.state.topicId}/submit`, {
+      const res = await App.api(`/api/quizzes/${submittedTopicId}/submit`, {
         method: 'POST',
         body: JSON.stringify({ answers: this.state.userAnswers })
       });
       if (res.success) {
+        if (App.state.currentView !== 'quiz' || App.state.selectedTopicId !== submittedTopicId) return;
         this.state.lastResult = res;
         await App.loadTopics();
         this.renderResults(res);
@@ -223,29 +245,12 @@ const Quiz = {
             You scored <strong style="color:#f87171">${result.percentage}%</strong> (${result.score}/${result.totalQuestions}). 
             Passing mark is <strong style="color:#f87171">${result.passingThreshold}%</strong>.
           </p>
-          <p style="font-size:0.82rem;margin-top:0.35rem;color:rgba(248,113,113,0.6)">⛔ You cannot proceed to the next module. Please review and retake until you score 75% or above.</p>
+          <p style="font-size:0.82rem;margin-top:0.35rem;color:rgba(248,113,113,0.6)">⛔ You cannot proceed to the next module. Please review and retake until you meet ${this.state.settings.passingPercentage}%.</p>
         </div>
       </div>
     `;
 
-    let itemsHtml = '';
-    (result.itemResults || []).forEach((item, idx) => {
-      const letters = ['A', 'B', 'C', 'D'];
-      const isCorrect = item.isCorrect;
-      itemsHtml += `
-        <div style="padding:1.15rem;border-radius:14px;border:1px solid ${isCorrect ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'};background:${isCorrect ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)'};margin-bottom:0.85rem">
-          <div style="font-weight:700;margin-bottom:0.5rem;display:flex;align-items:flex-start;gap:0.65rem;color:${isCorrect ? '#34d399' : '#f87171'}">
-            <span style="flex-shrink:0">${isCorrect ? '✅' : '❌'}</span>
-            <span style="font-size:0.9rem;color:${isCorrect ? '#a7f3d0' : '#fca5a5'}">Q${idx + 1}: ${item.question}</span>
-          </div>
-          <div style="font-size:0.82rem;padding-left:1.65rem">
-            <div style="color:rgba(165,180,252,0.6);margin-bottom:0.25rem">Your answer: <strong style="color:${isCorrect ? '#34d399' : '#f87171'}">${item.selectedAnswer !== null ? letters[item.selectedAnswer] + ') ' + item.options[item.selectedAnswer] : 'Not answered'}</strong></div>
-            ${!isCorrect ? `<div style="color:rgba(52,211,153,0.8)">Correct answer: <strong style="color:#34d399">${letters[item.correctAnswer]}) ${item.options[item.correctAnswer]}</strong></div>` : ''}
-            ${item.explanation ? `<div style="font-size:0.78rem;margin-top:0.4rem;padding:0.4rem 0.65rem;background:rgba(255,255,255,0.04);border-radius:6px;color:rgba(165,180,252,0.5)">💡 ${item.explanation}</div>` : ''}
-          </div>
-        </div>
-      `;
-    });
+    const itemsHtml = '<p>Answers are not shown to protect the quiz.</p>';
 
     main.innerHTML = `
       <div class="card">
@@ -276,7 +281,7 @@ const Quiz = {
 
         <h4 style="font-size:0.9rem;font-weight:700;color:#a5b4fc;margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-          Question Review
+          Score Details
         </h4>
         ${itemsHtml}
       </div>

@@ -35,13 +35,13 @@ const Reports = {
       let rowsHtml = '';
       records.forEach((r, idx) => {
         const statusClass = r.notTaken ? 'locked' : (r.passed ? 'completed' : 'failed');
-        const statusText = r.notTaken ? 'Not Taken' : (r.passed ? 'Passed (≥75%)' : 'Failed (<75%)');
+        const statusText = r.notTaken ? 'Not Taken' : (r.passed ? `Passed (≥${t.passingPercentage}%)` : `Failed (<${t.passingPercentage}%)`);
 
         rowsHtml += `
           <tr class="${r.passed ? 'highlight-pass' : (r.notTaken ? '' : 'highlight-fail')}">
             <td>${idx + 1}</td>
-            <td><strong>${r.lastName}</strong>, ${r.firstName}</td>
-            <td><code>${r.idNumber}</code></td>
+            <td><strong>${App.escapeHtml(r.lastName)}</strong>, ${App.escapeHtml(r.firstName)}</td>
+            <td><code>${App.escapeHtml(r.idNumber)}</code></td>
             <td><strong>${r.score}</strong> / ${r.totalQuestions}</td>
             <td><strong>${r.percentage}%</strong></td>
             <td><span class="topic-status-badge ${statusClass}">${statusText}</span></td>
@@ -54,10 +54,10 @@ const Reports = {
       main.innerHTML = `
         <!-- Print Header -->
         <div class="print-header">
-          <h2>${s.name} (${s.code})</h2>
+          <h2>${App.escapeHtml(s.name)} (${App.escapeHtml(s.code)})</h2>
           <h3>OFFICIAL TOPIC QUIZ SUMMARY REPORT</h3>
-          <p>${s.term} | ${s.yearLevel}</p>
-          <p><strong>Topic:</strong> ${t.title} | <strong>Passing Score:</strong> ${t.passingPercentage}%</p>
+          <p>${App.escapeHtml(s.term)} | ${App.escapeHtml(s.yearLevel)}</p>
+          <p><strong>Topic:</strong> ${App.escapeHtml(t.title)} | <strong>Passing Score:</strong> ${t.passingPercentage}%</p>
           <p><small>Generated on: ${new Date().toLocaleString()}</small></p>
         </div>
 
@@ -75,9 +75,9 @@ const Reports = {
             <button class="btn btn-outline btn-sm" onclick="Reports.exportPdf()">
               📄 Save / Export PDF
             </button>
-            <a href="/api/reports/topic/${t.id}?sort=${this.state.topicSortBy}&order=${this.state.topicSortOrder}&format=csv" download class="btn btn-success btn-sm">
+            <button type="button" onclick="Reports.downloadCsv('/api/reports/topic/${t.id}?sort=${this.state.topicSortBy}&order=${this.state.topicSortOrder}&format=csv', 'topic-${t.order}-gradebook.csv')" class="btn btn-success btn-sm">
               📊 Export Spreadsheet (CSV)
-            </a>
+            </button>
           </div>
         </div>
 
@@ -85,7 +85,7 @@ const Reports = {
           <div class="no-print" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
             <div>
               <span class="topic-number">Report Module</span>
-              <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--gray-900);">${t.title} - Quiz Summary</h2>
+              <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--gray-900);">${App.escapeHtml(t.title)} - Quiz Summary</h2>
               <p style="font-size: 0.85rem; color: var(--gray-600);">
                 Passing Criterion: <strong>${t.passingPercentage}%</strong> | Total Registered Students: <strong>${records.length}</strong>
               </p>
@@ -166,7 +166,7 @@ const Reports = {
 
       let headerColsHtml = '';
       topics.forEach(t => {
-        headerColsHtml += `<th>Topic ${t.order} Score</th>`;
+        headerColsHtml += `<th>Topic ${t.order} Score / Attempts</th>`;
       });
 
       let studentRowsHtml = '';
@@ -181,7 +181,7 @@ const Reports = {
             const badgeClass = sc.passed ? 'color: #166534; font-weight: 700;' : 'color: #991b1b; font-weight: 700;';
             topicCellsHtml += `
               <td style="${badgeClass}">
-                ${sc.score}/${sc.total} (${sc.percentage}%)
+                ${sc.score}/${sc.total} (${sc.percentage}%)<br><small>${sc.attempts} attempt${sc.attempts === 1 ? '' : 's'}</small>
               </td>
             `;
           }
@@ -192,9 +192,10 @@ const Reports = {
         studentRowsHtml += `
           <tr>
             <td>${idx + 1}</td>
-            <td><strong>${stu.lastName}</strong>, ${stu.firstName}</td>
-            <td><code>${stu.idNumber}</code></td>
+            <td><strong>${App.escapeHtml(stu.lastName)}</strong>, ${App.escapeHtml(stu.firstName)}</td>
+            <td><code>${App.escapeHtml(stu.idNumber)}</code></td>
             ${topicCellsHtml}
+            <td>${stu.quizAttempts || 0}</td>
             <td><strong>${stu.totalEarned}</strong> / ${stu.totalPossible}</td>
             <td><strong>${stu.overallPercentage}%</strong></td>
             <td><span class="topic-status-badge ${statusClass}">${stu.overallStatus}</span></td>
@@ -205,10 +206,10 @@ const Reports = {
       main.innerHTML = `
         <!-- Print Header -->
         <div class="print-header">
-          <h2>${s.name} (${s.code})</h2>
+          <h2>${App.escapeHtml(s.name)} (${App.escapeHtml(s.code)})</h2>
           <h3>MASTER SUMMARY OF ALL QUIZ SCORES PER STUDENT</h3>
-          <p>${s.term} | ${s.yearLevel}</p>
-          <p><strong>Total Course Topics:</strong> ${topics.length} | <strong>Passing Standard:</strong> 75% per module</p>
+          <p>${App.escapeHtml(s.term)} | ${App.escapeHtml(s.yearLevel)}</p>
+          <p><strong>Total Course Topics:</strong> ${topics.length} | <strong>Passing Standard:</strong> ${res.passingPercentage || 50}% per module</p>
           <p><small>Official Record Generated on: ${new Date().toLocaleString()}</small></p>
         </div>
 
@@ -223,9 +224,9 @@ const Reports = {
             <button class="btn btn-outline btn-sm" onclick="Reports.exportPdf()">
               📄 PDF
             </button>
-            <a href="/api/reports/all?format=csv" download class="btn btn-success btn-sm">
+            <button type="button" onclick="Reports.downloadCsv('/api/reports/all?format=csv', 'master-gradebook.csv')" class="btn btn-success btn-sm">
               📊 Spreadsheet (CSV)
-            </a>
+            </button>
           </div>
         </div>
 
@@ -250,6 +251,7 @@ const Reports = {
                   <th>Student Surname, First Name</th>
                   <th>Student ID</th>
                   ${headerColsHtml}
+                  <th>Quiz Attempts</th>
                   <th>Total Score</th>
                   <th>Overall %</th>
                   <th>Standing</th>
@@ -281,6 +283,23 @@ const Reports = {
 
   printReport() {
     window.print();
+  },
+
+  async downloadCsv(url, filename) {
+    try {
+      const response = await fetch(url, {
+        headers: App.state.token ? { Authorization: `Bearer ${App.state.token}` } : {}
+      });
+      if (!response.ok) throw new Error('Could not download the gradebook. Please log in again.');
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      App.toast(error.message || 'CSV download failed.', 'danger');
+    }
   },
 
   exportPdf() {

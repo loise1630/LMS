@@ -1,5 +1,5 @@
 /**
- * ITPE PROJECT - Numerical Methods Learning Management & Assessment System
+ * ITPE PROJECT - System Administration & Maintenance Learning Management System
  * Fully self-contained Node.js server (zero external dependencies required)
  */
 
@@ -9,6 +9,7 @@ const path = require('path');
 const crypto = require('crypto');
 const url = require('url');
 const { Pool } = require('pg');
+const AdmZip = require('adm-zip');
 
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'data', 'db.json');
@@ -16,6 +17,9 @@ const DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@l
 const pgPool = new Pool({ connectionString: DATABASE_URL });
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+const MAX_UPLOAD_BASE64_LENGTH = Math.ceil(MAX_UPLOAD_BYTES / 3) * 4;
+const MAX_UPLOAD_REQUEST_BYTES = MAX_UPLOAD_BASE64_LENGTH + 1024 * 1024;
 
 // Ensure directories exist
 if (!fs.existsSync(path.join(__dirname, 'data'))) {
@@ -32,78 +36,50 @@ let saveQueue = Promise.resolve();
 function getInitialDB() {
   return {
     subject: {
-      name: "Numerical Methods",
-      code: "MATH 313 / NUM-MET",
+      name: "System Administration and Maintenance",
+      code: "SYS-ADMIN",
       term: "1st Semester, A.Y. 2026-2027",
       yearLevel: "3rd Year - BSIT / Engineering"
     },
-    users: [
-      {
-        id: "usr_fac_1",
-        idNumber: "TUPT-FAC-001",
-        password: "faculty123",
-        role: "faculty",
-        firstName: "Maria Teresa",
-        lastName: "Santos",
-        privacyAgreed: true,
-        privacyAgreedAt: "2026-08-15T08:00:00.000Z"
-      },
-      {
-        id: "usr_stu_1",
-        idNumber: "TUPT-23-1096",
-        password: "student123",
-        role: "student",
-        firstName: "Juan",
-        lastName: "Dela Cruz",
-        privacyAgreed: true,
-        privacyAgreedAt: "2026-08-20T09:15:00.000Z"
-      },
-      {
-        id: "usr_stu_2",
-        idNumber: "TUPT-23-1097",
-        password: "student123",
-        role: "student",
-        firstName: "Maria Carmela",
-        lastName: "Alvarez",
-        privacyAgreed: true,
-        privacyAgreedAt: "2026-08-20T09:20:00.000Z"
-      },
-      {
-        id: "usr_stu_3",
-        idNumber: "TUPT-23-1098",
-        password: "student123",
-        role: "student",
-        firstName: "Carlo",
-        lastName: "Reyes",
-        privacyAgreed: true,
-        privacyAgreedAt: "2026-08-20T09:30:00.000Z"
-      },
-      {
-        id: "usr_stu_4",
-        idNumber: "TUPT-23-1099",
-        password: "student123",
-        role: "student",
-        firstName: "Kimberly",
-        lastName: "Tan",
-        privacyAgreed: true,
-        privacyAgreedAt: "2026-08-20T10:05:00.000Z"
-      },
-      {
-        id: "usr_stu_5",
-        idNumber: "TUPT-23-1100",
-        password: "student123",
-        role: "student",
-        firstName: "Mark Anthony",
-        lastName: "Bautista",
-        privacyAgreed: true,
-        privacyAgreedAt: "2026-08-20T10:15:00.000Z"
-      }
-    ],
+    settings: { passingPercentage: 50 },
+    users: [],
     // Topics start EMPTY - Professor uploads topics and materials
     topics: [],
     // Submissions start EMPTY
     submissions: []
   };
+}
+
+function derivePassword(password, salt) {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, 64, { N: 16384, r: 8, p: 1 }, (error, derivedKey) => {
+      if (error) reject(error);
+      else resolve(derivedKey);
+    });
+  });
+}
+
+async function hashPassword(password) {
+  const salt = crypto.randomBytes(16);
+  const digest = await derivePassword(password, salt);
+  return `scrypt$16384$${salt.toString('hex')}$${digest.toString('hex')}`;
+}
+
+async function verifyPassword(password, storedValue) {
+  if (typeof storedValue !== 'string') return false;
+  const parts = storedValue.split('$');
+  if (parts.length !== 4 || parts[0] !== 'scrypt' || parts[1] !== '16384') {
+    return storedValue === password;
+  }
+  try {
+    const salt = Buffer.from(parts[2], 'hex');
+    const expected = Buffer.from(parts[3], 'hex');
+    if (salt.length !== 16 || expected.length !== 64) return false;
+    const actual = await derivePassword(password, salt);
+    return crypto.timingSafeEqual(actual, expected);
+  } catch (error) {
+    return false;
+  }
 }
 
 async function loadDB() {
@@ -128,9 +104,56 @@ async function loadDB() {
     await saveDB();
   }
 
-  if (db.subject && db.subject.name.includes('Systems Integration')) {
-    db.subject.name = 'Numerical Methods';
-    db.subject.code = 'MATH 313 / NUM-MET';
+  // Remove untouched demo accounts from existing databases; keep actual registrations.
+  const demoStudents = new Map([
+    ['usr_stu_1', ['Juan', 'Dela Cruz', 'TUPT-23-1096']],
+    ['usr_stu_2', ['Maria Carmela', 'Alvarez', 'TUPT-23-1097']],
+    ['usr_stu_3', ['Carlo', 'Reyes', 'TUPT-23-1098']],
+    ['usr_stu_4', ['Kimberly', 'Tan', 'TUPT-23-1099']],
+    ['usr_stu_5', ['Mark Anthony', 'Bautista', 'TUPT-23-1100']]
+  ]);
+  const defaultFaculty = user => user.id === 'usr_fac_1' && user.idNumber === 'TUPT-FAC-001' &&
+    user.password === 'faculty123' && user.firstName === 'Maria Teresa' && user.lastName === 'Santos';
+  const userCountBeforeDemoCleanup = db.users.length;
+  db.users = db.users.filter(user => {
+    const seed = demoStudents.get(user.id);
+    return !defaultFaculty(user) && (!seed || user.firstName !== seed[0] || user.lastName !== seed[1] ||
+      user.idNumber !== seed[2] || user.password !== 'student123');
+  });
+  const registeredUserIds = new Set(db.users.map(user => user.id));
+  const submissionCountBeforeCleanup = db.submissions.length;
+  db.submissions = db.submissions.filter(submission => registeredUserIds.has(submission.userId));
+  const hasUnmarkedRegisteredStudents = db.users.some(user => user.role === 'student' && !user.registeredAt);
+  const hasLegacyFacultyRoles = db.users.some(user => user.role === 'faculty' && String(user.idNumber || '').toUpperCase() !== ADMIN_ID);
+  let passwordsMigrated = false;
+  for (const user of db.users) {
+    if (String(user.idNumber || '').toUpperCase() === ADMIN_ID) user.role = 'faculty';
+    else if (user.role === 'faculty') user.role = 'student';
+    if (user.role === 'student' && !user.registeredAt) {
+      user.registeredAt = user.privacyAgreedAt || new Date().toISOString();
+    }
+    if (typeof user.password === 'string' && !user.password.startsWith('scrypt$')) {
+      user.password = await hashPassword(user.password);
+      passwordsMigrated = true;
+    }
+  }
+  if (db.users.length !== userCountBeforeDemoCleanup || db.submissions.length !== submissionCountBeforeCleanup ||
+      hasUnmarkedRegisteredStudents || hasLegacyFacultyRoles || passwordsMigrated) await saveDB();
+
+  // Backfill application settings for databases created before admin settings existed.
+  if (!db.settings) {
+    db.settings = { passingPercentage: 50 };
+    await saveDB();
+  } else if (!Number.isFinite(Number(db.settings.passingPercentage))) {
+    db.settings.passingPercentage = 50;
+    await saveDB();
+  }
+
+  if (db.subject && (db.subject.name === 'Numerical Methods' || db.subject.name === 'Systems Integration' ||
+      db.subject.code === 'MATH 313 / NUM-MET')) {
+    db.subject.name = 'System Administration and Maintenance';
+    db.subject.code = 'SYS-ADMIN';
+    db.subject.yearLevel = '3rd Year - BSIT';
     await saveDB();
   }
   return db;
@@ -175,11 +198,6 @@ function createSession(user) {
 }
 
 function authenticate(req) {
-  const customId = req.headers['x-user-id'];
-  if (customId) {
-    const user = db.users.find(u => u.id === customId || (u.idNumber && u.idNumber.toUpperCase() === customId.toUpperCase()));
-    if (user) return user;
-  }
   const authHeader = req.headers['authorization'] || '';
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
@@ -197,6 +215,7 @@ const MIME_TYPES = {
   '.html': 'text/html; charset=UTF-8',
   '.css': 'text/css; charset=UTF-8',
   '.js': 'application/javascript; charset=UTF-8',
+  '.mjs': 'application/javascript; charset=UTF-8',
   '.json': 'application/json; charset=UTF-8',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -221,17 +240,27 @@ function sendJson(res, statusCode, data) {
   res.end(JSON.stringify(data));
 }
 
-function parseBody(req) {
+function parseBody(req, maxBytes = 10 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
-    let body = '';
+    const chunks = [];
+    let bodyBytes = 0;
+    let tooLarge = false;
     req.on('data', chunk => {
-      body += chunk.toString();
-      if (body.length > 10 * 1024 * 1024) {
-        req.destroy();
-        reject(new Error('Payload too large'));
+      bodyBytes += chunk.length;
+      if (bodyBytes > maxBytes) {
+        tooLarge = true;
+        chunks.length = 0;
+        return;
       }
+      if (!tooLarge) chunks.push(chunk);
     });
     req.on('end', () => {
+      if (tooLarge) {
+        const error = new Error('Request is too large. Upload files up to 20 MB.');
+        error.statusCode = 413;
+        return reject(error);
+      }
+      const body = Buffer.concat(chunks).toString('utf8');
       if (!body) return resolve({});
       try {
         resolve(JSON.parse(body));
@@ -241,6 +270,98 @@ function parseBody(req) {
     });
     req.on('error', reject);
   });
+}
+
+function decodeXmlText(value) {
+  return value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([\da-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
+}
+
+async function extractUploadedDocument(filename, buffer) {
+  const extension = path.extname(filename).toLowerCase();
+  if (extension === '.txt') {
+    return { text: buffer.toString('utf8').slice(0, 80000), sections: 1, format: 'TXT' };
+  }
+
+  if (extension === '.pptx') {
+    const zip = new AdmZip(buffer);
+    const slides = zip.getEntries()
+      .filter(entry => /^ppt\/slides\/slide\d+\.xml$/i.test(entry.entryName) && entry.header.size <= 500000)
+      .sort((a, b) => {
+        const pageA = Number(a.entryName.match(/slide(\d+)/i)[1]);
+        const pageB = Number(b.entryName.match(/slide(\d+)/i)[1]);
+        return pageA - pageB;
+      });
+    const extracted = slides.map((slide, index) => {
+      const xml = slide.getData().toString('utf8');
+      const paragraphs = [...xml.matchAll(/<a:p(?:\s[^>]*)?>([\s\S]*?)<\/a:p>/g)]
+        .map(paragraph => [...paragraph[1].matchAll(/<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/g)]
+          .map(match => decodeXmlText(match[1]).trim())
+          .filter(Boolean)
+          .join(' '))
+        .filter(Boolean);
+      return paragraphs.map(text => `[Slide ${index + 1}] ${text}`).join('\n');
+    }).filter(Boolean).join('\n');
+    const imageEntries = zip.getEntries()
+      .filter(entry => /^ppt\/media\/.+\.(?:png|jpe?g|gif|bmp|webp)$/i.test(entry.entryName) && entry.header.size <= 1024 * 1024)
+      .slice(0, 12);
+    let imageBytes = 0;
+    const embeddedImages = [];
+    for (const entry of imageEntries) {
+      const data = entry.getData();
+      if (imageBytes + data.length > 3 * 1024 * 1024) break;
+      imageBytes += data.length;
+      const ext = path.extname(entry.entryName).toLowerCase();
+      const mimeType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : `image/${ext.slice(1)}`;
+      embeddedImages.push({ dataBase64: data.toString('base64'), mimeType });
+    }
+    return { text: extracted.slice(0, 80000), sections: slides.length, format: 'PowerPoint', embeddedImages };
+  }
+
+  if (extension === '.pdf') {
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(buffer),
+      useSystemFonts: true,
+      isEvalSupported: false,
+      verbosity: 0
+    });
+    const document = await loadingTask.promise;
+    const pages = [];
+    const pageCount = Math.min(document.numPages, 100);
+    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+      const page = await document.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const lineGroups = [];
+      for (const item of content.items) {
+        const text = (item.str || '').trim();
+        if (!text) continue;
+        const y = item.transform ? item.transform[5] : 0;
+        let line = lineGroups[lineGroups.length - 1];
+        if (!line || Math.abs(line.y - y) > 2.5) {
+          line = { y, text: '' };
+          lineGroups.push(line);
+        }
+        line.text += `${line.text ? ' ' : ''}${text}`;
+      }
+      const text = lineGroups.map(line => `[Page ${pageNumber}] ${line.text}`).join('\n').trim();
+      if (text) pages.push(text);
+      if (pages.join('\n').length >= 80000) break;
+    }
+    await loadingTask.destroy();
+    return { text: pages.join('\n').slice(0, 80000), sections: pageCount, format: 'PDF' };
+  }
+
+  if (extension === '.ppt') {
+    throw new Error('Legacy .ppt files are not supported yet. Save the presentation as .pptx and upload it again.');
+  }
+  throw new Error('Unsupported file type. Upload a text-based PDF, PPTX, or TXT file.');
 }
 
 // Helper to determine student progression lock status for all topics
@@ -254,7 +375,8 @@ function computeStudentProgress(studentId) {
   for (let i = 0; i < topics.length; i++) {
     const topic = topics[i];
     const topicSubs = submissions.filter(s => s.topicId === topic.id);
-    const latestPassed = topicSubs.some(s => s.passed);
+    const passingThreshold = Number(db.settings?.passingPercentage) || 50;
+    const latestPassed = topicSubs.some(s => Number(s.percentage) >= passingThreshold);
     const hasAttempt = topicSubs.length > 0;
     const latestAttempt = topicSubs[topicSubs.length - 1] || null;
 
@@ -316,22 +438,55 @@ const server = http.createServer(async (req, res) => {
   // API Endpoints
   if (pathname.startsWith('/api/')) {
     try {
+      if (pathname === '/api/extract-document' && method === 'POST') {
+        const user = authenticate(req);
+        if (!hasFacultyAccess(user)) {
+          return sendJson(res, 403, { success: false, message: 'Faculty authorization required.' });
+        }
+
+        const body = await parseBody(req, MAX_UPLOAD_REQUEST_BYTES);
+        if (!body.filename || typeof body.dataBase64 !== 'string' || !body.dataBase64) {
+          return sendJson(res, 400, { success: false, message: 'Choose a document to extract.' });
+        }
+        if (body.dataBase64.length > MAX_UPLOAD_BASE64_LENGTH) {
+          return sendJson(res, 413, { success: false, message: 'Choose a document smaller than 20 MB.' });
+        }
+
+        try {
+          const buffer = Buffer.from(body.dataBase64, 'base64');
+          if (buffer.length > MAX_UPLOAD_BYTES) {
+            return sendJson(res, 400, { success: false, message: 'Choose a document smaller than 20 MB.' });
+          }
+          const result = await extractUploadedDocument(path.basename(body.filename), buffer);
+          if (!result.text.trim()) {
+            if (result.format === 'PDF') {
+              return sendJson(res, 200, { success: true, ...result, requiresOCR: true });
+            }
+            return sendJson(res, 422, {
+              success: false,
+              message: 'No selectable text was found. This may be a scanned PDF; add OCR text or paste the lecture content before generating a quiz.'
+            });
+          }
+          return sendJson(res, 200, { success: true, ...result });
+        } catch (error) {
+          return sendJson(res, 422, { success: false, message: error.message || 'Could not read the uploaded document.' });
+        }
+      }
+
       // 1. Auth: Login USING ID NUMBER (NO USERNAME)
       // Accepts idNumber (e.g. TUPT-23-1096 or TUPT-FAC-001)
       if (pathname === '/api/auth/login' && method === 'POST') {
         const body = await parseBody(req);
         const searchId = (body.idNumber || body.username || '').trim().toUpperCase();
-        const password = body.password;
+        const password = typeof body.password === 'string' ? body.password : '';
 
-        if (!searchId || !password) {
+        if (!searchId || !password || password.length > 256) {
           return sendJson(res, 400, { success: false, message: 'Student / Faculty ID and password are required.' });
         }
 
-        const user = db.users.find(u =>
-          (u.idNumber && u.idNumber.toUpperCase() === searchId) && u.password === password
-        );
+        const user = db.users.find(u => u.idNumber && u.idNumber.toUpperCase() === searchId);
 
-        if (!user) {
+        if (!user || !(await verifyPassword(password, user.password))) {
           return sendJson(res, 401, {
             success: false,
             message: 'Invalid ID Number or password. Please verify your Student ID (e.g. TUPT-23-1096).'
@@ -362,12 +517,12 @@ const server = http.createServer(async (req, res) => {
       // 2. Auth: Register USING ID NUMBER (NO USERNAME)
       if (pathname === '/api/auth/register' && method === 'POST') {
         const body = await parseBody(req);
-        const { idNumber, password, role, firstName, lastName, privacyAgreed } = body;
+        const { idNumber, password, firstName, lastName, privacyAgreed } = body;
 
         const cleanId = (idNumber || '').trim().toUpperCase();
         const cleanFirst = (firstName || '').trim();
         const cleanLast = (lastName || '').trim();
-        const cleanPass = (password || '');
+        const cleanPass = typeof password === 'string' ? password : '';
 
         if (!cleanFirst) {
           return sendJson(res, 400, { success: false, message: 'First name is required.' });
@@ -381,42 +536,28 @@ const server = http.createServer(async (req, res) => {
         if (!cleanPass) {
           return sendJson(res, 400, { success: false, message: 'Password is required.' });
         }
+        if (cleanPass.length > 256) {
+          return sendJson(res, 400, { success: false, message: 'Password must be 256 characters or fewer.' });
+        }
         if (!privacyAgreed) {
           return sendJson(res, 400, { success: false, message: 'You must agree to the Data Privacy Notice to register.' });
         }
 
-        let existingUser = db.users.find(u => u.idNumber && u.idNumber.toUpperCase() === cleanId);
+        const existingUser = db.users.find(u => u.idNumber && u.idNumber.toUpperCase() === cleanId);
         if (existingUser) {
-          existingUser.firstName = cleanFirst;
-          existingUser.lastName = cleanLast;
-          existingUser.password = cleanPass;
-          existingUser.role = cleanId === ADMIN_ID || role === 'faculty' ? 'faculty' : 'student';
-          saveDB();
-          const token = createSession(existingUser);
-          return sendJson(res, 200, {
-            success: true,
-            token,
-            user: {
-              id: existingUser.id,
-              idNumber: existingUser.idNumber,
-              role: effectiveRole(existingUser),
-              firstName: existingUser.firstName,
-              lastName: existingUser.lastName,
-              privacyAgreed: true,
-              privacyAgreedAt: existingUser.privacyAgreedAt || new Date().toISOString()
-            }
-          });
+          return sendJson(res, 409, { success: false, message: 'This ID is already registered. Please log in instead.' });
         }
 
         const newUser = {
           id: 'usr_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
           idNumber: cleanId,
-          password: cleanPass,
-          role: cleanId === ADMIN_ID || role === 'faculty' ? 'faculty' : 'student',
+          password: await hashPassword(cleanPass),
+          role: cleanId === ADMIN_ID ? 'faculty' : 'student',
           firstName: cleanFirst,
           lastName: cleanLast,
           privacyAgreed: true,
-          privacyAgreedAt: new Date().toISOString()
+          privacyAgreedAt: new Date().toISOString(),
+          registeredAt: new Date().toISOString()
         };
 
         db.users.push(newUser);
@@ -458,10 +599,10 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      // 4. Subject Info (Get & Update) - Numerical Methods
+      // 4. Subject Info (Get & Update)
       if (pathname === '/api/subject') {
         if (method === 'GET') {
-          return sendJson(res, 200, { success: true, subject: db.subject });
+          return sendJson(res, 200, { success: true, subject: db.subject, settings: db.settings });
         }
         if (method === 'PUT') {
           const user = authenticate(req);
@@ -473,8 +614,19 @@ const server = http.createServer(async (req, res) => {
           if (body.code) db.subject.code = body.code.trim();
           if (body.term) db.subject.term = body.term.trim();
           if (body.yearLevel) db.subject.yearLevel = body.yearLevel.trim();
+          if (body.passingPercentage !== undefined) {
+            const passingPercentage = Number(body.passingPercentage);
+            if (!Number.isFinite(passingPercentage) || passingPercentage < 1 || passingPercentage > 100) {
+              return sendJson(res, 400, { success: false, message: 'Passing grade must be from 1% to 100%.' });
+            }
+            db.settings = { ...(db.settings || {}), passingPercentage };
+            // The admin standard is the course-wide passing threshold for all quizzes.
+            for (const topic of db.topics) {
+              topic.quizSettings = { ...(topic.quizSettings || {}), passingPercentage };
+            }
+          }
           saveDB();
-          return sendJson(res, 200, { success: true, subject: db.subject, message: 'Subject details updated successfully.' });
+          return sendJson(res, 200, { success: true, subject: db.subject, settings: db.settings, message: 'Settings updated successfully.' });
         }
       }
 
@@ -531,14 +683,17 @@ const server = http.createServer(async (req, res) => {
 
         if (method === 'GET') {
           const user = authenticate(req);
-          if (user && !hasFacultyAccess(user)) {
+          if (!user) {
+            return sendJson(res, 401, { success: false, message: 'Authentication required to view topic materials.' });
+          }
+          if (!hasFacultyAccess(user)) {
             const studentProg = computeStudentProgress(user.id);
             const myTopicProg = studentProg.find(p => p.topicId === topicId);
             if (myTopicProg && myTopicProg.isLocked) {
               return sendJson(res, 403, {
                 success: false,
                 isLocked: true,
-                message: 'This topic is locked. You must pass the previous topic quiz with at least 75% to proceed.'
+                message: `This topic is locked. You must pass the previous topic quiz with at least ${db.settings.passingPercentage}% to proceed.`
               });
             }
           }
@@ -553,7 +708,7 @@ const server = http.createServer(async (req, res) => {
               presentation: topic.presentation || { title: '', fileUrl: '' },
               slides: topic.slides || [],
               summary: topic.summary || '',
-              quizSettings: topic.quizSettings || { timeLimitMinutes: 10, maxQuestions: 20, passingPercentage: 75 },
+              quizSettings: { timeLimitMinutes: 10, maxQuestions: 20, ...(topic.quizSettings || {}), passingPercentage: Number(db.settings.passingPercentage) || 50 },
               questionCount: topic.quizQuestions ? topic.quizQuestions.length : 0
             }
           });
@@ -607,23 +762,24 @@ const server = http.createServer(async (req, res) => {
         const newTopic = {
           id: 'top_' + Date.now(),
           order: newOrder,
-          title: body.title || `Topic ${newOrder}: Numerical Methods Module`,
-          lessonText: body.lessonText || '<p>Enter Numerical Methods lecture content here...</p>',
+          title: body.title || `Topic ${newOrder}: System Administration and Maintenance`,
+          lessonText: body.lessonText || '<p>Enter System Administration and Maintenance course content here...</p>',
           presentation: {
             title: body.presentationTitle || (body.presentation ? body.presentation.title : ''),
             fileUrl: body.presentationFileUrl || (body.presentation ? body.presentation.fileUrl : ''),
             isUploaded: !!(body.presentationFileUrl || (body.presentation && body.presentation.fileUrl))
           },
           slides: body.slides || [
-            { title: `Slide 1: Topic ${newOrder} Overview`, content: "• Core mathematical formulation\n• Algorithm steps\n• Numerical error analysis" }
+            { title: `Slide 1: Topic ${newOrder} Overview`, content: "• System concepts and administration tasks\n• Maintenance procedures\n• Security and troubleshooting practices" }
           ],
-          summary: body.summary || '<p>Summary of algorithms, convergence criteria, and formulas.</p>',
-          quizSettings: body.quizSettings || {
+          summary: body.summary || '<p>Summary of system administration concepts, maintenance procedures, and troubleshooting practices.</p>',
+          quizSettings: {
             timeLimitMinutes: 10,
             maxQuestions: 20,
-            passingPercentage: 75
+            ...(body.quizSettings || {}),
+            passingPercentage: Number(db.settings.passingPercentage) || 50
           },
-          quizQuestions: Array.isArray(body.quizQuestions) ? body.quizQuestions : []
+          quizQuestions: []
         };
         db.topics.push(newTopic);
         saveDB();
@@ -636,14 +792,20 @@ const server = http.createServer(async (req, res) => {
         if (!hasFacultyAccess(user)) {
           return sendJson(res, 403, { success: false, message: 'Faculty authorization required to upload presentations.' });
         }
-        const body = await parseBody(req);
-        if (!body.filename || !body.dataBase64) {
+        const body = await parseBody(req, MAX_UPLOAD_REQUEST_BYTES);
+        if (!body.filename || typeof body.dataBase64 !== 'string' || !body.dataBase64) {
           return sendJson(res, 400, { success: false, message: 'Missing filename or file data.' });
+        }
+        if (body.dataBase64.length > MAX_UPLOAD_BASE64_LENGTH) {
+          return sendJson(res, 413, { success: false, message: 'Choose a file smaller than 20 MB.' });
         }
 
         const safeFilename = Date.now() + '_' + path.basename(body.filename).replace(/[^a-zA-Z0-9._-]/g, '_');
         const filePath = path.join(UPLOADS_DIR, safeFilename);
         const buffer = Buffer.from(body.dataBase64, 'base64');
+        if (buffer.length > MAX_UPLOAD_BYTES) {
+          return sendJson(res, 400, { success: false, message: 'Choose a file smaller than 20 MB.' });
+        }
         fs.writeFileSync(filePath, buffer);
 
         const fileUrl = '/uploads/' + safeFilename;
@@ -679,7 +841,10 @@ const server = http.createServer(async (req, res) => {
 
         if (method === 'GET') {
           const user = authenticate(req);
-          if (user && !hasFacultyAccess(user)) {
+          if (!user) {
+            return sendJson(res, 401, { success: false, message: 'Authentication required to access quizzes.' });
+          }
+          if (!hasFacultyAccess(user)) {
             const prog = computeStudentProgress(user.id);
             const thisProg = prog.find(p => p.topicId === topicId);
             if (thisProg && thisProg.isLocked) {
@@ -702,7 +867,7 @@ const server = http.createServer(async (req, res) => {
             return sendJson(res, 200, {
               success: true,
               topicTitle: topic.title,
-              quizSettings: topic.quizSettings || { timeLimitMinutes: 10, maxQuestions: 20, passingPercentage: 75 },
+              quizSettings: { timeLimitMinutes: 10, maxQuestions: 20, ...(topic.quizSettings || {}), passingPercentage: Number(db.settings.passingPercentage) || 50 },
               questions: sanitizedQuestions,
               totalQuestions: sanitizedQuestions.length,
               previousAttemptsCount: studentSubs.length,
@@ -713,7 +878,7 @@ const server = http.createServer(async (req, res) => {
           return sendJson(res, 200, {
             success: true,
             topicTitle: topic.title,
-            quizSettings: topic.quizSettings || { timeLimitMinutes: 10, maxQuestions: 20, passingPercentage: 75 },
+            quizSettings: { timeLimitMinutes: 10, maxQuestions: 20, ...(topic.quizSettings || {}), passingPercentage: Number(db.settings.passingPercentage) || 50 },
             questions: topic.quizQuestions || [],
             isFaculty: true
           });
@@ -730,10 +895,16 @@ const server = http.createServer(async (req, res) => {
             topic.quizSettings = {
               timeLimitMinutes: Number(body.quizSettings.timeLimitMinutes) || 10,
               maxQuestions: Number(body.quizSettings.maxQuestions) || 20,
-              passingPercentage: Number(body.quizSettings.passingPercentage) || 75
+              passingPercentage: Number(db.settings.passingPercentage) || 50
             };
           }
           if (Array.isArray(body.questions)) {
+            const oldQuestions = topic.quizQuestions || [];
+            const oldById = new Map(oldQuestions.map(question => [question.id, JSON.stringify(question)]));
+            const isDeletionOnly = body.questions.every(question => oldById.get(question.id) === JSON.stringify(question));
+            if (!isDeletionOnly) {
+              return sendJson(res, 400, { success: false, message: 'Quiz questions must come from an uploaded quiz file.' });
+            }
             topic.quizQuestions = body.questions;
           }
           saveDB();
@@ -742,6 +913,36 @@ const server = http.createServer(async (req, res) => {
       }
 
       // 10. Bulk Import Quiz Questions
+      const generatedMatch = pathname.match(/^\/api\/quizzes\/([^/]+)\/generated$/);
+      if (generatedMatch && method === 'POST') {
+        const user = authenticate(req);
+        if (!hasFacultyAccess(user)) {
+          return sendJson(res, 403, { success: false, message: 'Faculty authorization required.' });
+        }
+        const topic = db.topics.find(t => t.id === generatedMatch[1]);
+        if (!topic) return sendJson(res, 404, { success: false, message: 'Topic not found.' });
+        const body = await parseBody(req);
+        if (!Array.isArray(body.questions) || body.questions.length < 4 || body.questions.length > 20) {
+          return sendJson(res, 400, { success: false, message: 'Generated quiz must contain 4 to 20 readable questions.' });
+        }
+        const questions = body.questions.map((question, index) => ({
+          id: `gen_${Date.now()}_${index}`,
+          question: String(question.question || '').trim().slice(0, 1000),
+          options: Array.isArray(question.options) ? question.options.map(option => String(option).trim().slice(0, 500)) : [],
+          correctAnswer: Number(question.correctAnswer),
+          explanation: String(question.explanation || '').trim().slice(0, 1500),
+          source: 'Uploaded course material'
+        }));
+        if (questions.some(question => !question.question || question.options.length < 2 || question.options.length > 6 ||
+            question.options.some(option => !option) || !Number.isInteger(question.correctAnswer) ||
+            question.correctAnswer < 0 || question.correctAnswer >= question.options.length)) {
+          return sendJson(res, 400, { success: false, message: 'Generated quiz contains an invalid question or answer.' });
+        }
+        topic.quizQuestions = questions;
+        saveDB();
+        return sendJson(res, 200, { success: true, message: `Saved ${questions.length} questions generated from the uploaded material.`, count: questions.length });
+      }
+
       const importMatch = pathname.match(/^\/api\/quizzes\/([^\/]+)\/import$/);
       if (importMatch && method === 'POST') {
         const topicId = importMatch[1];
@@ -756,63 +957,77 @@ const server = http.createServer(async (req, res) => {
 
         const body = await parseBody(req);
         let importedQuestions = [];
+        let skippedQuestionCount = 0;
 
-        if (Array.isArray(body.questions)) {
-          importedQuestions = body.questions;
-        } else if (typeof body.rawText === 'string') {
+        if (typeof body.rawText === 'string') {
           const lines = body.rawText.split('\n').map(l => l.trim()).filter(Boolean);
           let currentQ = null;
+          const addValidQuestion = () => {
+            if (!currentQ) return;
+            if (!currentQ.question || currentQ.options.length < 2 || !Number.isInteger(currentQ.correctAnswer) ||
+                currentQ.correctAnswer < 0 || currentQ.correctAnswer >= currentQ.options.length) {
+              skippedQuestionCount++;
+              return;
+            }
+            importedQuestions.push(currentQ);
+          };
 
           for (const line of lines) {
             if (/^\d+[\.\)]\s*(.*)/.test(line)) {
-              if (currentQ && currentQ.question && currentQ.options.length >= 2) {
-                importedQuestions.push(currentQ);
-              }
+              addValidQuestion();
               const match = line.match(/^\d+[\.\)]\s*(.*)/);
               currentQ = {
                 id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                 question: match[1],
                 options: [],
-                correctAnswer: 0,
+                correctAnswer: null,
                 explanation: ''
               };
             } else if (/^[a-dA-D][\.\)]\s*(.*)/.test(line) && currentQ) {
               const optMatch = line.match(/^([a-dA-D])[\.\)]\s*(.*)/);
               currentQ.options.push(optMatch[2]);
-            } else if (/^Answer:\s*([a-dA-D]|\d+)/i.test(line) && currentQ) {
-              const ansMatch = line.match(/^Answer:\s*([a-dA-D]|\d+)/i);
+            } else if (/^(?:Correct\s+)?Answer:\s*([a-dA-D]|\d+)/i.test(line) && currentQ) {
+              const ansMatch = line.match(/^(?:Correct\s+)?Answer:\s*([a-dA-D]|\d+)/i);
               const val = ansMatch[1];
               if (isNaN(val)) {
                 currentQ.correctAnswer = val.toUpperCase().charCodeAt(0) - 65;
               } else {
-                currentQ.correctAnswer = parseInt(val, 10);
+                const numericAnswer = parseInt(val, 10);
+                currentQ.correctAnswer = numericAnswer > 0 ? numericAnswer - 1 : numericAnswer;
               }
             }
           }
-          if (currentQ && currentQ.question && currentQ.options.length >= 2) {
-            importedQuestions.push(currentQ);
-          }
+          addValidQuestion();
         }
 
         if (importedQuestions.length === 0) {
-          return sendJson(res, 400, { success: false, message: 'No valid questions found to import. Check format.' });
+          return sendJson(res, 400, { success: false, message: 'No valid questions found. Add numbered questions, at least two options, and a valid Answer: line.' });
         }
 
-        if (body.mode === 'replace') {
-          topic.quizQuestions = importedQuestions;
-        } else {
-          topic.quizQuestions = (topic.quizQuestions || []).concat(importedQuestions);
-        }
+        const existingQuestions = body.mode === 'replace' ? [] : (topic.quizQuestions || []);
+        const seenQuestionTexts = new Set(existingQuestions.map(question =>
+          String(question.question || '').trim().toLowerCase().replace(/\s+/g, ' ')
+        ));
+        const newQuestions = importedQuestions.filter(question => {
+          const key = String(question.question || '').trim().toLowerCase().replace(/\s+/g, ' ');
+          if (!key || seenQuestionTexts.has(key)) {
+            skippedQuestionCount++;
+            return false;
+          }
+          seenQuestionTexts.add(key);
+          return true;
+        });
+        topic.quizQuestions = body.mode === 'replace' ? newQuestions : existingQuestions.concat(newQuestions);
         saveDB();
 
         return sendJson(res, 200, {
           success: true,
-          message: `Successfully imported ${importedQuestions.length} questions.`,
+          message: `Added ${newQuestions.length} questions${skippedQuestionCount ? `; skipped ${skippedQuestionCount} invalid or duplicate questions` : ''}.`,
           count: topic.quizQuestions.length
         });
       }
 
-      // 11. Student Quiz Submission & Progression Gating (75% Threshold)
+      // 11. Student Quiz Submission & Progression Gating (Admin-configured threshold)
       const submitMatch = pathname.match(/^\/api\/quizzes\/([^\/]+)\/submit$/);
       if (submitMatch && method === 'POST') {
         const topicId = submitMatch[1];
@@ -824,31 +1039,27 @@ const server = http.createServer(async (req, res) => {
         if (!user) {
           return sendJson(res, 401, { success: false, message: 'Authentication required to submit quiz.' });
         }
+        if (hasFacultyAccess(user) || user.role !== 'student') {
+          return sendJson(res, 403, { success: false, message: 'Only enrolled students can submit quizzes.' });
+        }
+        if (!Array.isArray(topic.quizQuestions) || topic.quizQuestions.length === 0) {
+          return sendJson(res, 400, { success: false, message: 'This topic has no uploaded quiz yet.' });
+        }
 
         const body = await parseBody(req);
-        const studentAnswers = body.answers || {};
+        const studentAnswers = body.answers && typeof body.answers === 'object' && !Array.isArray(body.answers) ? body.answers : {};
 
         let score = 0;
         const total = (topic.quizQuestions || []).length;
-        const itemResults = [];
-
         for (const q of (topic.quizQuestions || [])) {
           const selected = studentAnswers[q.id];
-          const isCorrect = (selected !== undefined && selected !== null && Number(selected) === q.correctAnswer);
+          const answerIndex = Number(selected);
+          const isCorrect = selected !== undefined && selected !== null && Number.isInteger(answerIndex) &&
+            answerIndex >= 0 && answerIndex < q.options.length && answerIndex === q.correctAnswer;
           if (isCorrect) score++;
-
-          itemResults.push({
-            questionId: q.id,
-            question: q.question,
-            options: q.options,
-            selectedAnswer: selected !== undefined ? Number(selected) : null,
-            correctAnswer: q.correctAnswer,
-            isCorrect,
-            explanation: q.explanation || ''
-          });
         }
 
-        const passingThreshold = (topic.quizSettings && topic.quizSettings.passingPercentage) || 75;
+        const passingThreshold = Number(db.settings.passingPercentage) || 50;
         const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
         const passed = percentage >= passingThreshold;
 
@@ -864,8 +1075,7 @@ const server = http.createServer(async (req, res) => {
           percentage,
           passed,
           attempt: newAttemptNumber,
-          submittedAt: new Date().toISOString(),
-          answers: studentAnswers
+          submittedAt: new Date().toISOString()
         };
 
         db.submissions.push(submissionRecord);
@@ -885,8 +1095,7 @@ const server = http.createServer(async (req, res) => {
           nextTopicTitle: nextTopic ? nextTopic.title : null,
           message: passed
             ? `CONGRATULATIONS! You passed with ${percentage}%! You may now proceed to the next topic.`
-            : `FAILED QUIZ - You scored ${percentage}% (Passing is ${passingThreshold}%). You CANNOT proceed to the next topic. Please repeat and review ${topic.title} before retaking the quiz.`,
-          itemResults
+            : `FAILED QUIZ - You scored ${percentage}% (Passing is ${passingThreshold}%). You CANNOT proceed to the next topic. Please repeat and review ${topic.title} before retaking the quiz.`
         });
       }
 
@@ -894,6 +1103,10 @@ const server = http.createServer(async (req, res) => {
       // Supports: sorted by surname, sorted by score, CSV export
       const topicReportMatch = pathname.match(/^\/api\/reports\/topic\/([^\/]+)$/);
       if (topicReportMatch && method === 'GET') {
+        const requester = authenticate(req);
+        if (!hasFacultyAccess(requester)) {
+          return sendJson(res, requester ? 403 : 401, { success: false, message: 'Faculty authorization required to view student grades.' });
+        }
         const topicId = topicReportMatch[1];
         const topic = db.topics.find(t => t.id === topicId);
         if (!topic) {
@@ -903,7 +1116,7 @@ const server = http.createServer(async (req, res) => {
         const sortBy = parsedUrl.query.sort || 'surname';
         const order = parsedUrl.query.order || 'asc';
 
-        const students = db.users.filter(u => u.role === 'student');
+        const students = db.users.filter(u => u.role === 'student' && u.registeredAt);
         const rows = [];
 
         for (const student of students) {
@@ -921,7 +1134,7 @@ const server = http.createServer(async (req, res) => {
               score: bestSub.score,
               totalQuestions: bestSub.totalQuestions,
               percentage: bestSub.percentage,
-              passed: bestSub.passed,
+              passed: Number(bestSub.percentage) >= (Number(db.settings.passingPercentage) || 50),
               attempts: studentSubs.length,
               latestSubmittedAt: latestSub.submittedAt
             });
@@ -957,7 +1170,7 @@ const server = http.createServer(async (req, res) => {
           csv += `Subject: "${db.subject.name}" (${db.subject.code})\r\n`;
           csv += `Term: "${db.subject.term}" | Year Level: "${db.subject.yearLevel}"\r\n`;
           csv += `Topic: "${topic.title}"\r\n`;
-          csv += `Passing Score: ${topic.quizSettings?.passingPercentage || 75}%\r\n`;
+          csv += `Passing Score: ${Number(db.settings.passingPercentage) || 50}%\r\n`;
           csv += `Generated On: "${new Date().toLocaleString()}"\r\n\r\n`;
           csv += `Student ID,Surname,First Name,Score,Total Items,Percentage,Status,Attempts,Last Submitted\r\n`;
 
@@ -969,7 +1182,7 @@ const server = http.createServer(async (req, res) => {
 
           res.writeHead(200, {
             'Content-Type': 'text/csv; charset=UTF-8',
-            'Content-Disposition': `attachment; filename="Numerical_Methods_Quiz_${topic.id}.csv"`
+            'Content-Disposition': `attachment; filename="System_Administration_Quiz_${topic.id}.csv"`
           });
           return res.end(csv);
         }
@@ -981,7 +1194,7 @@ const server = http.createServer(async (req, res) => {
             id: topic.id,
             order: topic.order,
             title: topic.title,
-            passingPercentage: topic.quizSettings?.passingPercentage || 75
+              passingPercentage: Number(db.settings.passingPercentage) || 50
           },
           sortBy,
           order,
@@ -992,8 +1205,12 @@ const server = http.createServer(async (req, res) => {
       // 13. Master Summary of ALL Quiz Scores per Student
       // Dynamic: Displays all topics that currently exist in the curriculum
       if (pathname === '/api/reports/all' && method === 'GET') {
+        const requester = authenticate(req);
+        if (!hasFacultyAccess(requester)) {
+          return sendJson(res, requester ? 403 : 401, { success: false, message: 'Faculty authorization required to view the gradebook.' });
+        }
         const sortedTopics = [...db.topics].sort((a, b) => a.order - b.order);
-        const students = db.users.filter(u => u.role === 'student');
+        const students = db.users.filter(u => u.role === 'student' && u.registeredAt);
 
         const studentRows = [];
 
@@ -1011,12 +1228,12 @@ const server = http.createServer(async (req, res) => {
                 score: best.score,
                 total: best.totalQuestions,
                 percentage: best.percentage,
-                passed: best.passed,
+                passed: Number(best.percentage) >= (Number(db.settings.passingPercentage) || 50),
                 attempts: studentSubs.length
               };
               totalEarned += best.score;
               totalPossible += best.totalQuestions;
-              if (!best.passed) passedAll = false;
+              if (Number(best.percentage) < (Number(db.settings.passingPercentage) || 50)) passedAll = false;
             } else {
               topicScores[t.id] = {
                 score: 0,
@@ -1043,7 +1260,8 @@ const server = http.createServer(async (req, res) => {
             totalEarned,
             totalPossible,
             overallPercentage,
-            overallStatus: overallPercentage >= 75 && passedAll ? 'PASSED' : (overallPercentage >= 75 ? 'IN PROGRESS' : 'NEEDS RETAKE')
+            quizAttempts: db.submissions.filter(s => s.userId === student.id).length,
+            overallStatus: overallPercentage >= (Number(db.settings.passingPercentage) || 50) && passedAll ? 'PASSED' : (overallPercentage >= (Number(db.settings.passingPercentage) || 50) ? 'IN PROGRESS' : 'NEEDS RETAKE')
           });
         }
 
@@ -1059,7 +1277,7 @@ const server = http.createServer(async (req, res) => {
           for (const t of sortedTopics) {
             header += `,"Topic ${t.order} Score","Topic ${t.order} %","Topic ${t.order} Status"`;
           }
-          header += `,Total Earned,Total Items,Overall %,Overall Standing\r\n`;
+          header += `,Quiz Attempts,Total Earned,Total Items,Overall %,Overall Standing\r\n`;
           csv += header;
 
           for (const s of studentRows) {
@@ -1072,13 +1290,13 @@ const server = http.createServer(async (req, res) => {
                 row += `,"${sc.score} / ${sc.total}","${sc.percentage}%","${sc.passed ? 'PASSED' : 'FAILED'}"`;
               }
             }
-            row += `,${s.totalEarned},${s.totalPossible},"${s.overallPercentage}%","${s.overallStatus}"\r\n`;
+            row += `,${s.quizAttempts},${s.totalEarned},${s.totalPossible},"${s.overallPercentage}%","${s.overallStatus}"\r\n`;
             csv += row;
           }
 
           res.writeHead(200, {
             'Content-Type': 'text/csv; charset=UTF-8',
-            'Content-Disposition': `attachment; filename="Numerical_Methods_Master_Gradebook.csv"`
+            'Content-Disposition': `attachment; filename="System_Administration_Master_Gradebook.csv"`
           });
           return res.end(csv);
         }
@@ -1086,6 +1304,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, {
           success: true,
           subject: db.subject,
+          passingPercentage: Number(db.settings.passingPercentage) || 50,
           topics: sortedTopics.map(t => ({ id: t.id, order: t.order, title: t.title })),
           students: studentRows
         });
@@ -1095,18 +1314,40 @@ const server = http.createServer(async (req, res) => {
       if (pathname === '/api/system/reset' && method === 'POST') {
         db = getInitialDB();
         saveDB();
-        return sendJson(res, 200, { success: true, message: 'Numerical Methods database reset to standard default state.' });
+        return sendJson(res, 200, { success: true, message: 'System Administration and Maintenance database reset to its default state.' });
       }
 
       return sendJson(res, 404, { success: false, message: 'API route not found' });
     } catch (err) {
       console.error('API Error:', err);
-      return sendJson(res, 500, { success: false, message: 'Server error: ' + err.message });
+      return sendJson(res, err.statusCode || 500, { success: false, message: err.message || 'Server error.' });
     }
   }
 
   // Static File Serving
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
+
+  if (pathname.startsWith('/vendor/pdfjs/')) {
+    const pdfjsRoot = path.join(__dirname, 'node_modules', 'pdfjs-dist');
+    const relativeAsset = decodeURIComponent(pathname.slice('/vendor/pdfjs/'.length));
+    const candidate = path.resolve(pdfjsRoot, relativeAsset);
+    if (!candidate.startsWith(pdfjsRoot + path.sep) || !/\.(?:mjs|bcmap|pfb|ttf|wasm)$/i.test(candidate)) {
+      res.writeHead(403);
+      return res.end('Access denied');
+    }
+    filePath = candidate;
+  }
+
+  if (pathname.startsWith('/vendor/ogl/')) {
+    const oglRoot = path.join(__dirname, 'node_modules', 'ogl', 'src');
+    const relativeAsset = decodeURIComponent(pathname.slice('/vendor/ogl/'.length));
+    const candidate = path.resolve(oglRoot, relativeAsset);
+    if (!candidate.startsWith(oglRoot + path.sep) || !/\.js$/i.test(candidate)) {
+      res.writeHead(403);
+      return res.end('Access denied');
+    }
+    filePath = candidate;
+  }
 
   if (pathname.startsWith('/uploads/')) {
     filePath = path.join(__dirname, pathname);
@@ -1144,7 +1385,7 @@ const server = http.createServer(async (req, res) => {
 loadDB().then(() => {
   server.listen(PORT, () => {
     console.log(`=======================================================`);
-    console.log(`Numerical Methods Portal running on http://localhost:${PORT}`);
+    console.log(`System Administration and Maintenance Portal running on http://localhost:${PORT}`);
     console.log(`Database: PostgreSQL (${DATABASE_URL.replace(/:[^:@/]+@/, ':****@')})`);
     console.log(`Authentication Mode: Student ID (Format: TUPT-23-1096)`);
     console.log(`=======================================================`);

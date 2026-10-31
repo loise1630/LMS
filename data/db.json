@@ -1,9 +1,9 @@
 {
   "subject": {
-    "name": "Numerical Methods",
-    "code": "MATH 313 / NUM-MET",
+    "name": "System Administration and Maintenance",
+    "code": "SYS-ADMIN",
     "term": "1st Semester, A.Y. 2026-2027",
-    "yearLevel": "3rd Year - BSIT / Engineering"
+    "yearLevel": "3rd Year - BSIT"
   },
   "users": [
     {

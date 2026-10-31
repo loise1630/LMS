@@ -1,70 +1,89 @@
 /**
- * ITPE PROJECT - Faculty Management Module with OCR & Automated Quiz Generator
+ * ITPE PROJECT - Faculty course and quiz file management
  * 
  * Capabilities:
  * - Dynamic topic module creator
  * - Material upload (Presentations, PDFs, and Photos/Images)
  * - Browser-based OCR to read text and formulas from uploaded photos
- * - Automated 10-minute 75% quiz generation from material content
  * - Interactive slide deck builder
  * - Comprehensive question bank manager
  */
 
 const Faculty = {
+  maxUploadBytes: 20 * 1024 * 1024,
   // Temporary storage for staged new topic creation
   stagedFile: null,
   stagedFileBase64: null,
   stagedFileName: '',
+  stagedMaterialText: '',
   stagedQuestions: [],
+  quizChoice: 'uploaded',
+  pdfOcrWarning: '',
+  extractionStartedAt: 0,
+  extractionEstimateMs: 0,
+  extractionProgressTimer: null,
+  extractionEstimateElementId: 'ocr-estimate-text',
+
+  async openQuizUploadModal() {
+    try {
+      const response = await App.api('/api/topics');
+      const topics = response.topics || [];
+      if (!topics.length) {
+        App.toast('Create a topic first, then upload its quiz file.', 'warning');
+        return;
+      }
+      const options = topics.map(topic =>
+        '<option value="' + String(topic.id).replace(/"/g, '&quot;') + '">' +
+        'Topic ' + topic.order + ': ' + topic.title.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</option>'
+      ).join('');
+      App.showModal({
+        title: 'Upload Quiz',
+        body: '<div class="form-group"><label class="form-label">Choose the topic for this quiz file</label>' +
+          '<select id="quiz-upload-topic" class="form-control">' + options + '</select></div>' +
+          '<p>Next, choose a TXT, PDF, or PPTX file with numbered questions, options, and correct answers.</p>',
+        confirmText: 'Choose Quiz File',
+        onConfirm: () => {
+          const topicId = document.getElementById('quiz-upload-topic')?.value;
+          if (!topicId) return;
+          App.closeModal();
+          this.openBulkImportModal(topicId);
+        }
+      });
+    } catch (error) {
+      App.toast(error.message || 'Could not load topics.', 'danger');
+    }
+  },
 
   openNewTopicModal() {
     this.stagedFile = null;
     this.stagedFileBase64 = null;
     this.stagedFileName = '';
+    this.stagedMaterialText = '';
     this.stagedQuestions = [];
-
-    const quickTopics = [
-      'Bisection Method',
-      'Newton-Raphson Method',
-      'Secant Method',
-      'Gaussian Elimination',
-      'LU Decomposition',
-      'Simpson\'s 1/3 & Trapezoidal Rule',
-      'Runge-Kutta 4th Order (RK4)',
-      'Error Analysis & Round-off'
-    ];
-
-    const chipsHtml = quickTopics.map(t => `
-      <span class="topic-chip" onclick="Faculty.applyQuickTopic('${t}')">${t}</span>
-    `).join(' ');
-
+    this.quizChoice = 'uploaded';
     App.showModal({
-      title: '➕ Upload Course Topic & Auto-Generate Quiz',
+      title: 'Upload Course Topic',
       body: `
         <div style="font-size: 0.88rem; color: #64748b; margin-bottom: 1.25rem;">
-          Upload your lecture materials, presentations, or <strong>photos/images of notes and formulas</strong>.
-          The built-in OCR and AI engine will read the text and automatically synthesize a 10-minute 75% quiz.
+          Upload a PDF or PowerPoint to extract its content and automatically prepare a related quiz. You can use the generated questions or upload your own quiz file.
         </div>
 
         <!-- Section 1: Topic Title -->
         <div class="form-group">
           <label class="form-label" style="font-weight: 700;">1. Topic Title</label>
-          <input type="text" id="modal-topic-title" class="form-control" placeholder="e.g. Topic 1: Bisection Method & Root Finding" oninput="Faculty.onTitleOrTextChange()" />
-          <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center;">
-            <span style="font-size: 0.75rem; color: #94a3b8; margin-right: 0.25rem;">Quick Select:</span>
-            ${chipsHtml}
-          </div>
+          <input type="text" id="modal-topic-title" class="form-control" placeholder="e.g. Topic 1: Operating System Installation" />
         </div>
 
         <!-- Section 2: Upload Material & Image OCR -->
         <div class="form-group" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem;">
           <label class="form-label" style="font-weight: 700; display: flex; justify-content: space-between; align-items: center;">
-            <span>2. Upload Material / Photo (PNG, JPG, PDF, TXT, PPT)</span>
-            <span style="font-size: 0.75rem; color: #0071e3; font-weight: 600;">📷 OCR Enabled</span>
+            <span>2. Upload Material / Photo (PDF, PPTX, TXT, PNG, JPG)</span>
+            <span style="font-size: 0.75rem; color: #0071e3; font-weight: 600;">PDF / PPTX text extraction</span>
           </label>
           
-          <input type="file" id="modal-material-input" class="form-control" accept="image/*,.pdf,.txt,.ppt,.pptx" onchange="Faculty.handleMaterialFileSelect(event)" style="background: white;" />
+          <input type="file" id="modal-material-input" class="form-control" accept="image/*,.pdf,.txt,.pptx" onchange="Faculty.handleMaterialFileSelect(event)" style="background: white;" />
           
+          <small>Maximum file size: 20 MB.</small>
           <!-- Image OCR Preview & Status Area -->
           <div id="ocr-preview-container" style="display: none; margin-top: 0.85rem; padding: 0.75rem; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
             <div style="display: flex; gap: 1rem; align-items: center;">
@@ -72,6 +91,7 @@ const Faculty = {
               <div style="flex: 1;">
                 <div id="ocr-filename" style="font-weight: 700; font-size: 0.88rem; color: #0f172a;">filename.png</div>
                 <div id="ocr-status-text" style="font-size: 0.78rem; color: #64748b; margin-top: 0.15rem;">Photo ready for OCR scanning</div>
+                <div id="ocr-estimate-text" style="font-size: 0.75rem; color: #0071e3; margin-top: 0.2rem;"></div>
                 <div class="ocr-progress-bar" id="ocr-progress-bar-container" style="display: none;">
                   <div class="ocr-progress-fill" id="ocr-progress-fill"></div>
                 </div>
@@ -87,33 +107,18 @@ const Faculty = {
         <div class="form-group">
           <label class="form-label" style="font-weight: 700; display: flex; justify-content: space-between;">
             <span>3. Lesson Notes & Extracted Content</span>
-            <span style="font-size: 0.75rem; color: #64748b;">(Auto-filled by OCR or editable)</span>
+            <span style="font-size: 0.75rem; color: #64748b;">(Extracted from file or editable)</span>
           </label>
-          <textarea id="modal-topic-lesson" class="form-control" style="min-height: 110px; font-size: 0.85rem;" placeholder="Lecture text, mathematical formulations, and definitions extracted from the material..." oninput="Faculty.onTitleOrTextChange()"></textarea>
+          <textarea id="modal-topic-lesson" class="form-control" style="min-height: 110px; font-size: 0.85rem;" placeholder="Concepts, administration procedures, commands, and troubleshooting steps extracted from the material..."></textarea>
         </div>
 
-        <!-- Section 4: Automated Quiz Generation -->
-        <div class="form-group" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 1rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
-            <div>
-              <span style="font-weight: 800; color: #166534; font-size: 0.95rem;">⚡ Automated Quiz Generator</span>
-              <span id="quiz-count-badge" class="generated-q-badge" style="margin-left: 0.5rem; background: #dcfce7; color: #166534;">0 Questions</span>
-            </div>
-            <button type="button" class="btn btn-sm btn-success" onclick="Faculty.triggerAutoQuizGeneration()" style="font-weight: 700;">
-              ✨ Generate / Refresh Quiz
-            </button>
-          </div>
 
-          <div style="font-size: 0.8rem; color: #15803d; margin-bottom: 0.75rem;">
-            Rule: 10-minute timer, 75% passing mark. Progression gates next topic until passed.
-          </div>
 
-          <!-- Staged Questions Preview List -->
-          <div id="staged-questions-list" style="max-height: 220px; overflow-y: auto; padding-right: 0.25rem;">
-            <div style="text-align: center; padding: 1.5rem; color: #64748b; font-size: 0.85rem; background: white; border-radius: 8px; border: 1px dashed #cbd5e1;">
-              Select a topic or upload photo to auto-generate questions.
-            </div>
-          </div>
+        <div class="form-group" style="padding: 1rem; background: #f8fafc; border-radius: 10px;">
+          <strong>Quiz option</strong>
+          <label style="display:block; margin-top:.65rem;"><input id="quiz-choice-generated" type="radio" name="quiz-choice" value="generated" disabled onchange="Faculty.quizChoice='generated'" /> Use generated quiz (<span id="generated-quiz-count">waiting for uploaded material</span>)</label>
+          <label style="display:block; margin-top:.5rem;"><input id="quiz-choice-uploaded" type="radio" name="quiz-choice" value="uploaded" checked onchange="Faculty.quizChoice='uploaded'" /> Upload my own quiz file after creating the topic</label>
+          <div id="generated-quiz-preview" style="display:none; max-height:180px; overflow:auto; margin-top:.75rem; padding:.75rem; background:white; border:1px solid #e2e8f0; border-radius:8px;"></div>
         </div>
       `,
       confirmText: '🚀 Publish Topic & Quiz to Students',
@@ -122,41 +127,159 @@ const Faculty = {
       }
     });
 
-    // Auto-generate initial set if title default is set
-    setTimeout(() => {
-      this.applyQuickTopic('Bisection Method');
-    }, 100);
   },
 
-  applyQuickTopic(name) {
-    const titleInput = document.getElementById('modal-topic-title');
-    const lessonInput = document.getElementById('modal-topic-lesson');
-    if (!titleInput) return;
+  startExtractionEstimate(file, elementId = 'ocr-estimate-text') {
+    clearInterval(this.extractionProgressTimer);
+    this.extractionEstimateElementId = elementId;
+    this.extractionStartedAt = Date.now();
+    const sizeMb = file.size / (1024 * 1024);
+    const extension = file.name.split('.').pop().toLowerCase();
+    const baseSeconds = extension === 'pdf' ? 12 : extension === 'pptx' ? 10 : file.type.startsWith('image/') ? 6 : 2;
+    const secondsPerMb = extension === 'pdf' ? 5 : extension === 'pptx' ? 4 : file.type.startsWith('image/') ? 6 : 1;
+    this.extractionEstimateMs = Math.min(240, Math.max(5, baseSeconds + sizeMb * secondsPerMb)) * 1000;
+    this.renderExtractionEstimate();
+    this.extractionProgressTimer = setInterval(() => this.renderExtractionEstimate(), 1000);
+  },
 
-    const topicOrder = (App.state.topics ? App.state.topics.length : 0) + 1;
-    titleInput.value = `Topic ${topicOrder}: ${name}`;
-
-    if (lessonInput && !lessonInput.value.trim()) {
-      lessonInput.value = `Overview of ${name} in Numerical Analysis.\n• Formulations, iterative algorithm steps, and convergence criteria.\n• Stopping condition: absolute error tolerance and relative error analysis.`;
+  renderExtractionEstimate(progressFraction = 0) {
+    const estimate = document.getElementById(this.extractionEstimateElementId);
+    if (!this.extractionStartedAt) return;
+    const elapsed = Date.now() - this.extractionStartedAt;
+    if (progressFraction > 0 && progressFraction < 1) {
+      this.extractionEstimateMs = Math.max(this.extractionEstimateMs, elapsed / progressFraction * 0.85);
     }
+    const remainingSeconds = Math.max(0, Math.ceil((this.extractionEstimateMs - elapsed) / 1000));
+    const remainingText = remainingSeconds > 0
+      ? `Estimated time remaining: about ${remainingSeconds < 60 ? `${remainingSeconds} sec` : `${Math.ceil(remainingSeconds / 60)} min`}`
+      : 'Finishing up… (estimate reached)';
+    if (estimate) estimate.textContent = remainingText;
 
-    this.triggerAutoQuizGeneration();
+    const generatedCount = document.getElementById('generated-quiz-count');
+    if (generatedCount?.textContent.startsWith('extracting material')) {
+      generatedCount.textContent = `extracting material... · ${remainingText}`;
+    }
   },
 
-  onTitleOrTextChange() {
-    // Debounced quiz regeneration
-    clearTimeout(this._debounceTimer);
-    this._debounceTimer = setTimeout(() => {
-      this.triggerAutoQuizGeneration(false);
-    }, 700);
+  finishExtractionEstimate(message = 'Extraction and quiz preparation finished') {
+    clearInterval(this.extractionProgressTimer);
+    this.extractionProgressTimer = null;
+    const estimate = document.getElementById(this.extractionEstimateElementId);
+    const generatedCount = document.getElementById('generated-quiz-count');
+    if (estimate && this.extractionStartedAt) {
+      const elapsedSeconds = Math.max(1, Math.ceil((Date.now() - this.extractionStartedAt) / 1000));
+      estimate.textContent = `${message} in about ${elapsedSeconds} sec.`;
+    }
+    if (generatedCount?.textContent.startsWith('extracting material')) {
+      generatedCount.textContent = `${message}.`;
+    }
+    this.extractionStartedAt = 0;
   },
 
-  handleMaterialFileSelect(event) {
+  async extractPdfImageText(file, onProgress = null) {
+    this.pdfOcrWarning = '';
+    if (typeof Tesseract === 'undefined') {
+      this.pdfOcrWarning = 'The OCR library did not load, so text inside PDF photos could not be read.';
+      if (onProgress) onProgress(this.pdfOcrWarning);
+      return '';
+    }
+    let worker = null;
+    let pdfLoadingTask = null;
+    let pdf = null;
+    const imageText = [];
+    try {
+      const pdfjs = await import('/vendor/pdfjs/legacy/build/pdf.mjs');
+      pdfjs.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/legacy/build/pdf.worker.mjs';
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      pdfLoadingTask = pdfjs.getDocument({
+        data: bytes,
+        useSystemFonts: true,
+        isEvalSupported: false,
+        cMapUrl: '/vendor/pdfjs/cmaps/',
+        cMapPacked: true,
+        standardFontDataUrl: '/vendor/pdfjs/standard_fonts/'
+      });
+      pdf = await pdfLoadingTask.promise;
+      const pagesToScan = Math.min(pdf.numPages, 30);
+      const imageOps = new Set([
+        pdfjs.OPS.paintImageXObject,
+        pdfjs.OPS.paintInlineImageXObject,
+        pdfjs.OPS.paintImageMaskXObject,
+        pdfjs.OPS.paintImageXObjectRepeat
+      ]);
+
+      for (let pageNumber = 1; pageNumber <= pagesToScan; pageNumber++) {
+        const page = await pdf.getPage(pageNumber);
+        const operators = await page.getOperatorList();
+        if (!operators.fnArray.some(operation => imageOps.has(operation))) continue;
+
+        if (!worker) worker = await Tesseract.createWorker('eng', 1);
+        if (onProgress) onProgress(`Scanning embedded images on PDF page ${pageNumber} of ${pagesToScan}...`);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = Math.ceil(viewport.width);
+        pageCanvas.height = Math.ceil(viewport.height);
+        const context = pageCanvas.getContext('2d', { willReadFrequently: true });
+        await page.render({ canvasContext: context, viewport }).promise;
+
+        const result = await worker.recognize(pageCanvas);
+        const text = (result?.data?.text || '').trim();
+        if (text.length > 12 && (result?.data?.confidence || 0) >= 35) {
+          imageText.push(`[Page ${pageNumber}] ${text}`);
+        }
+        pageCanvas.width = 1;
+        pageCanvas.height = 1;
+      }
+
+      if (pdf.numPages > pagesToScan && onProgress) {
+        this.pdfOcrWarning = `Embedded-image OCR was limited to the first ${pagesToScan} PDF pages.`;
+        onProgress(this.pdfOcrWarning);
+      }
+    } catch (error) {
+      console.warn('PDF image OCR could not complete:', error);
+      this.pdfOcrWarning = 'PDF text was extracted, but some embedded images could not be OCR-scanned.';
+      if (onProgress) onProgress(this.pdfOcrWarning);
+    } finally {
+      if (worker) await worker.terminate();
+      if (pdfLoadingTask) await pdfLoadingTask.destroy();
+    }
+    return imageText.join('\n');
+  },
+
+  async handleMaterialFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
+    if (file.size > this.maxUploadBytes) {
+      event.target.value = '';
+      this.stagedFile = null;
+      this.stagedFileBase64 = null;
+      this.stagedFileName = '';
+      this.stagedMaterialText = '';
+      this.stagedQuestions = [];
+      const preview = document.getElementById('ocr-preview-container');
+      const lesson = document.getElementById('modal-topic-lesson');
+      const generatedRadio = document.getElementById('quiz-choice-generated');
+      const generatedCount = document.getElementById('generated-quiz-count');
+      if (preview) preview.style.display = 'none';
+      if (lesson) lesson.value = '';
+      if (generatedRadio) { generatedRadio.checked = false; generatedRadio.disabled = true; }
+      if (generatedCount) generatedCount.textContent = 'waiting for an upload within the 20 MB limit';
+      App.toast('The selected material exceeds the 20 MB upload limit. Please choose a smaller file.', 'warning');
+      return;
+    }
 
     this.stagedFile = file;
     this.stagedFileName = file.name;
+    this.startExtractionEstimate(file);
+    this.stagedQuestions = [];
+    this.quizChoice = 'uploaded';
+    this.pdfOcrWarning = '';
+    const generatedRadio = document.getElementById('quiz-choice-generated');
+    if (generatedRadio) generatedRadio.checked = false;
+    const uploadedRadio = document.getElementById('quiz-choice-uploaded');
+    if (uploadedRadio) uploadedRadio.checked = true;
+    const generatedCount = document.getElementById('generated-quiz-count');
+    if (generatedCount) generatedCount.textContent = 'extracting material...';
 
     const previewContainer = document.getElementById('ocr-preview-container');
     const thumbImg = document.getElementById('ocr-image-thumb');
@@ -166,7 +289,11 @@ const Faculty = {
 
     previewContainer.style.display = 'block';
     filenameEl.textContent = file.name;
-
+    this.stagedMaterialText = '';
+    const lessonInput = document.getElementById('modal-topic-lesson');
+    if (lessonInput && /^Overview of .* in .+\.$/i.test(lessonInput.value.trim())) {
+      lessonInput.value = '';
+    }
     // Check if image file
     if (file.type.startsWith('image/')) {
       const reader = new FileReader();
@@ -181,24 +308,113 @@ const Faculty = {
       };
       reader.readAsDataURL(file);
     } else {
-      // Document file (PDF, PPT, TXT)
+      // Text documents are parsed locally by the server; no generic quiz fallback is used.
       thumbImg.src = '/uploads/images/3.png';
       thumbImg.style.display = 'block';
-      statusText.textContent = `Document file (${(file.size / 1024).toFixed(1)} KB) attached.`;
+      statusText.textContent = `Reading ${file.name} (${(file.size / 1024).toFixed(1)} KB)...`;
       runOcrBtn.style.display = 'none';
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.stagedFileBase64 = e.target.result.split(',')[1];
-        if (file.type === 'text/plain') {
-          const lessonInput = document.getElementById('modal-topic-lesson');
-          if (lessonInput && !lessonInput.value) {
-            lessonInput.value = atob(this.stagedFileBase64).slice(0, 1000);
-            this.triggerAutoQuizGeneration();
-          }
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
         }
-      };
-      reader.readAsDataURL(file);
+        this.stagedFileBase64 = btoa(binary);
+
+        if (file.name.toLowerCase().endsWith('.txt')) {
+          this.stagedMaterialText = new TextDecoder().decode(bytes);
+        } else {
+          const extracted = await App.api('/api/extract-document', {
+            method: 'POST',
+            body: JSON.stringify({ filename: file.name, dataBase64: this.stagedFileBase64 })
+          });
+          this.stagedMaterialText = extracted.text || '';
+          if (extracted.format === 'PDF') {
+            const imageText = await this.extractPdfImageText(file, message => {
+              statusText.textContent = message;
+              const progress = message.match(/page (\d+) of (\d+)/i);
+              if (progress) this.renderExtractionEstimate(Number(progress[1]) / Number(progress[2]));
+            });
+            if (imageText) this.stagedMaterialText += `\n${imageText}`;
+          } else if (extracted.format === 'PowerPoint' && extracted.embeddedImages?.length) {
+            const imageText = await this.extractEmbeddedImageText(extracted.embeddedImages, message => {
+              statusText.textContent = message;
+              const progress = message.match(/image (\d+) of (\d+)/i);
+              if (progress) this.renderExtractionEstimate(Number(progress[1]) / Number(progress[2]));
+            });
+            if (imageText) this.stagedMaterialText += `\n${imageText}`;
+          }
+          statusText.textContent = `Extracted ${this.stagedMaterialText.length.toLocaleString()} characters from ${extracted.sections} ${extracted.format === 'PDF' ? 'pages' : 'slides'}.${this.pdfOcrWarning ? ` ${this.pdfOcrWarning}` : ''}`;
+        }
+
+        if (!this.stagedMaterialText.trim()) throw new Error('No readable text found in this file. Paste the lecture content into the notes box.');
+        if (lessonInput) lessonInput.value = this.stagedMaterialText;
+        this.generateStagedQuiz();
+        this.finishExtractionEstimate();
+      } catch (error) {
+        this.stagedMaterialText = '';
+        statusText.textContent = error.message || 'Could not extract text from this file.';
+        this.finishExtractionEstimate('Extraction failed');
+        if (generatedCount) generatedCount.textContent = 'Extraction failed; retry the file or upload your own quiz.';
+      }
+    }
+  },
+
+  async extractEmbeddedImageText(images, onProgress = null) {
+    if (!images?.length || typeof Tesseract === 'undefined') return '';
+    let worker = null;
+    const extracted = [];
+    try {
+      worker = await Tesseract.createWorker('eng', 1);
+      for (let index = 0; index < images.length; index++) {
+        if (onProgress) onProgress(`Reading PowerPoint image ${index + 1} of ${images.length}...`);
+        const image = images[index];
+        const result = await worker.recognize(`data:${image.mimeType};base64,${image.dataBase64}`);
+        const text = (result?.data?.text || '').trim();
+        if (text.length > 12 && (result?.data?.confidence || 0) >= 35) extracted.push(`[Image ${index + 1}] ${text}`);
+      }
+    } catch (error) {
+      console.warn('PowerPoint embedded-image OCR could not complete:', error);
+      this.pdfOcrWarning = 'PowerPoint text was extracted, but some embedded images could not be OCR-scanned.';
+    } finally {
+      if (worker) await worker.terminate();
+    }
+    return extracted.join('\n');
+  },
+
+  generateStagedQuiz() {
+    const title = document.getElementById('modal-topic-title')?.value.trim() || this.stagedFileName || '';
+    this.stagedQuestions = QuizGenerator.generateQuestionsFromMaterial(this.stagedMaterialText, 10);
+    const generatedRadio = document.getElementById('quiz-choice-generated');
+    const generatedCount = document.getElementById('generated-quiz-count');
+    const preview = document.getElementById('generated-quiz-preview');
+    const escapeHtml = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
+    if (generatedCount) {
+      generatedCount.textContent = this.stagedQuestions.length
+        ? `${this.stagedQuestions.length} questions from readable definitions in ${title}`
+        : 'not enough clean definitions (need 4+); upload your own quiz file';
+    }
+    if (generatedRadio) {
+      generatedRadio.disabled = this.stagedQuestions.length < 4;
+      if (this.stagedQuestions.length >= 4) {
+        generatedRadio.checked = true;
+        this.quizChoice = 'generated';
+      }
+    }
+    if (preview) {
+      preview.style.display = this.stagedQuestions.length ? 'block' : 'none';
+      preview.innerHTML = this.stagedQuestions.slice(0, 3).map((question, index) =>
+        `<div style="margin-bottom:.7rem"><strong>Preview ${index + 1}:</strong> ${escapeHtml(question.question)}<br><small>${escapeHtml(question.options[question.correctAnswer])}</small></div>`
+      ).join('') + (this.stagedQuestions.length > 3 ? '<small>Previewing 3 questions; the full generated quiz will be saved.</small>' : '');
+    }
+    if (this.stagedQuestions.length < 4) {
+      this.quizChoice = 'uploaded';
+      const uploadedRadio = document.getElementById('quiz-choice-uploaded');
+      if (uploadedRadio) uploadedRadio.checked = true;
+      App.toast('Fewer than four clean concepts were found. To avoid a low-quality quiz, upload your own quiz file.', 'warning');
+    } else {
+      App.toast(`Prepared ${this.stagedQuestions.length} quiz questions from the uploaded material.`, 'success');
     }
   },
 
@@ -221,24 +437,34 @@ const Faculty = {
       const result = await QuizGenerator.extractTextFromImage(this.stagedFile, (pct, msg) => {
         if (progressFill) progressFill.style.width = `${pct}%`;
         if (statusText) statusText.textContent = msg || `Scanning image... ${pct}%`;
+        this.renderExtractionEstimate(pct / 100);
       });
 
       if (result && result.text) {
+        this.stagedMaterialText = result.text;
         if (lessonInput) {
           lessonInput.value = result.text;
         }
         if (statusText) {
-          statusText.innerHTML = `✅ <strong style="color: #166534;">OCR Successful!</strong> Extracted text & formulas (${result.engine}).`;
+          statusText.innerHTML = `✅ <strong style="color: #166534;">OCR Successful!</strong> Extracted readable text (${result.engine}).`;
         }
         App.toast('OCR extracted text from photo successfully!', 'success');
+        this.generateStagedQuiz();
 
-        // Automatically synthesize quiz from extracted text!
-        this.triggerAutoQuizGeneration(true);
+      } else {
+        const message = result?.message || 'No readable text found. Paste the lecture content into the notes box.';
+        if (statusText) statusText.textContent = message;
+        const generatedCount = document.getElementById('generated-quiz-count');
+        if (generatedCount) generatedCount.textContent = 'OCR found no readable text; retry or upload your own quiz.';
+        App.toast(message, 'warning');
       }
     } catch (e) {
       console.error('OCR Error:', e);
-      if (statusText) statusText.textContent = 'OCR scan completed with default analysis.';
+      if (statusText) statusText.textContent = 'OCR could not read this image. Paste the lecture text into the notes box.';
+      const generatedCount = document.getElementById('generated-quiz-count');
+      if (generatedCount) generatedCount.textContent = 'OCR failed; retry or upload your own quiz.';
     } finally {
+      this.finishExtractionEstimate(this.stagedMaterialText ? 'Extraction and quiz preparation finished' : 'Extraction failed');
       if (runOcrBtn) runOcrBtn.disabled = false;
       setTimeout(() => {
         if (progressBar) progressBar.style.display = 'none';
@@ -246,72 +472,6 @@ const Faculty = {
     }
   },
 
-  triggerAutoQuizGeneration(showToast = true) {
-    const title = (document.getElementById('modal-topic-title') ? document.getElementById('modal-topic-title').value : '').trim();
-    const lesson = (document.getElementById('modal-topic-lesson') ? document.getElementById('modal-topic-lesson').value : '').trim();
-
-    this.stagedQuestions = QuizGenerator.generateQuestions(title, lesson, 10);
-    this.renderStagedQuestions();
-
-    if (showToast) {
-      App.toast(`Generated ${this.stagedQuestions.length} Numerical Methods questions!`, 'success');
-    }
-  },
-
-  renderStagedQuestions() {
-    const list = document.getElementById('staged-questions-list');
-    const badge = document.getElementById('quiz-count-badge');
-    if (!list) return;
-
-    if (badge) {
-      badge.textContent = `${this.stagedQuestions.length} Questions Generated`;
-    }
-
-    if (this.stagedQuestions.length === 0) {
-      list.innerHTML = `
-        <div style="text-align: center; padding: 1rem; color: #64748b; font-size: 0.85rem;">
-          No questions generated yet. Enter a topic title or upload photo material.
-        </div>
-      `;
-      return;
-    }
-
-    const letters = ['A', 'B', 'C', 'D'];
-    let html = '';
-
-    this.stagedQuestions.forEach((q, idx) => {
-      let opts = '';
-      (q.options || []).forEach((opt, oIdx) => {
-        const isCorrect = oIdx === q.correctAnswer;
-        opts += `
-          <div style="font-size: 0.8rem; padding: 0.2rem 0.45rem; border-radius: 4px; margin-bottom: 2px; ${isCorrect ? 'background: #dcfce7; font-weight: 700; color: #166534;' : 'color: #334155;'}">
-            ${letters[oIdx]}) ${opt} ${isCorrect ? '✓' : ''}
-          </div>
-        `;
-      });
-
-      html += `
-        <div class="generated-q-item">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.35rem;">
-            <span style="font-size: 0.78rem; font-weight: 700; color: #0071e3;">Item #${idx + 1}</span>
-            <button type="button" class="btn btn-danger btn-sm" style="padding: 0.1rem 0.4rem; font-size: 0.7rem;" onclick="Faculty.removeStagedQuestion(${idx})">✕</button>
-          </div>
-          <div style="font-size: 0.85rem; font-weight: 600; color: #0f172a; margin-bottom: 0.4rem;">${q.question}</div>
-          <div style="margin-left: 0.35rem; margin-bottom: 0.35rem;">${opts}</div>
-          ${q.explanation ? `<div style="font-size: 0.75rem; color: #64748b; font-style: italic;">💡 ${q.explanation}</div>` : ''}
-        </div>
-      `;
-    });
-
-    list.innerHTML = html;
-  },
-
-  removeStagedQuestion(idx) {
-    if (this.stagedQuestions.length > idx) {
-      this.stagedQuestions.splice(idx, 1);
-      this.renderStagedQuestions();
-    }
-  },
 
   async submitNewTopic() {
     const titleInput = document.getElementById('modal-topic-title');
@@ -319,14 +479,15 @@ const Faculty = {
 
     const title = titleInput ? titleInput.value.trim() : '';
     const lessonText = lessonInput ? lessonInput.value.trim() : '';
+    const selectedQuizChoice = document.querySelector('input[name="quiz-choice"]:checked')?.value || 'uploaded';
 
     if (!title) {
       App.toast('Topic Title is required.', 'warning');
       return;
     }
-
-    if (this.stagedQuestions.length === 0) {
-      this.triggerAutoQuizGeneration(false);
+    if (selectedQuizChoice === 'generated' && this.stagedQuestions.length < 4) {
+      App.toast('At least four clean questions are required. Please upload your own quiz if the material is too noisy.', 'warning');
+      return;
     }
 
     let fileUrl = '';
@@ -342,19 +503,20 @@ const Faculty = {
             dataBase64: this.stagedFileBase64
           })
         });
-        if (upRes.success) {
-          fileUrl = upRes.fileUrl;
-        }
+        if (!upRes.success || !upRes.fileUrl) throw new Error('The material upload did not complete.');
+        fileUrl = upRes.fileUrl;
       } catch (err) {
         console.warn('File upload warning:', err);
+        App.toast('Could not upload the topic material: ' + err.message, 'danger');
+        return;
       }
     }
 
     // Prepare slides from material or title
     const slides = [
       {
-        title: `${title} - Formulation & Overview`,
-        content: `• Core principles of ${title}.\n• Numerical algorithm steps.\n• Error analysis and convergence rate.`
+        title: `${title} - Overview & Key Concepts`,
+        content: `• Core system administration principles for ${title}.\n• Procedures, tools, and configuration steps.\n• Security, maintenance, and troubleshooting.`
       },
       {
         title: `${title} - Implementation Details`,
@@ -376,21 +538,29 @@ const Faculty = {
           presentationTitle: fileName,
           presentationFileUrl: fileUrl,
           slides,
-          summary: `<p><strong>Key Takeaways:</strong> ${title} provides stable numerical convergence under standard conditions. Master the formula and error bounds before taking the quiz.</p>`,
-          quizSettings: {
-            timeLimitMinutes: 10,
-            maxQuestions: Math.min(20, Math.max(5, this.stagedQuestions.length)),
-            passingPercentage: 75
-          },
-          quizQuestions: this.stagedQuestions
+          summary: `<p><strong>Key Takeaways:</strong> Review the system concepts, procedures, security practices, and troubleshooting steps covered in ${title} before taking the quiz.</p>`,
+          quizSettings: { timeLimitMinutes: 10, maxQuestions: 20, passingPercentage: 50 },
+          quizQuestions: []
         })
       });
 
       if (res.success) {
+        if (selectedQuizChoice === 'generated') {
+          const quizRes = await App.api(`/api/quizzes/${res.topic.id}/generated`, {
+            method: 'POST',
+            body: JSON.stringify({ questions: this.stagedQuestions })
+          });
+          if (!quizRes.success) throw new Error(quizRes.message || 'Could not save the generated quiz.');
+        }
         App.closeModal();
-        App.toast(`Topic "${title}" and ${this.stagedQuestions.length}-item quiz published!`, 'success');
         await App.loadTopics();
-        App.navigate('topics');
+        if (selectedQuizChoice === 'uploaded') {
+          App.toast(`Topic "${title}" created. Upload your quiz file now.`, 'success');
+          this.openBulkImportModal(res.topic.id);
+        } else {
+          App.toast(`Topic "${title}" and ${this.stagedQuestions.length}-question generated quiz published.`, 'success');
+          App.navigate('topics');
+        }
       }
     } catch (e) {
       console.error(e);
@@ -469,13 +639,14 @@ const Faculty = {
         <div class="form-group">
           <label class="form-label">Select File (.png, .jpg, .pdf, .pptx, .txt)</label>
           <input type="file" id="modal-upload-file" class="form-control" accept=".pdf,.pptx,.ppt,.txt,.png,.jpg,.jpeg" />
+          <small>Maximum file size: 20 MB.</small>
           <small style="color: var(--gray-500); display: block; margin-top: 0.25rem;">
             Images and presentation decks are linked directly into this topic module.
           </small>
         </div>
         <div class="form-group">
           <label class="form-label">Display Title / Material Name</label>
-          <input type="text" id="modal-upload-name" class="form-control" placeholder="e.g. Chapter Slides or Formula Photo" />
+          <input type="text" id="modal-upload-name" class="form-control" placeholder="e.g. Server Setup Guide or Network Diagram" />
         </div>
       `,
       confirmText: 'Upload & Attach to Topic',
@@ -489,6 +660,10 @@ const Faculty = {
         }
 
         const file = fileInput.files[0];
+        if (file.size > this.maxUploadBytes) {
+          App.toast('The selected material exceeds the 20 MB upload limit. Please choose a smaller file.', 'warning');
+          return;
+        }
         const reader = new FileReader();
 
         reader.onload = async (e) => {
@@ -609,7 +784,7 @@ const Faculty = {
       if (!res.success) return;
 
       const questions = res.questions || [];
-      const settings = res.quizSettings || { timeLimitMinutes: 10, maxQuestions: 20, passingPercentage: 75 };
+      const settings = res.quizSettings || { timeLimitMinutes: 10, maxQuestions: 20, passingPercentage: 50 };
 
       let qListHtml = '';
       questions.forEach((q, qIdx) => {
@@ -641,14 +816,11 @@ const Faculty = {
         <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
           <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅️ Back to Table of Contents</button>
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <button class="btn btn-success btn-sm" onclick="Faculty.autoGenerateForExistingTopic('${topicId}')">
-              ⚡ Auto-Generate Questions
+            <button class="btn btn-success btn-sm" onclick="Faculty.regenerateQuizFromMaterial('${topicId}')">
+              Regenerate from Uploaded Material
             </button>
             <button class="btn btn-primary btn-sm" onclick="Faculty.openAddQuestionModal('${topicId}')">
-              ➕ Insert Single Question
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="Faculty.openBulkImportModal('${topicId}')">
-              📥 Bulk / Text Import
+              Upload Quiz File
             </button>
           </div>
         </div>
@@ -677,8 +849,8 @@ const Faculty = {
                 <input type="number" id="setting-max" class="form-control" value="${settings.maxQuestions || 20}" min="1" max="50" />
               </div>
               <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label">Passing Threshold (%)</label>
-                <input type="number" id="setting-passing" class="form-control" value="${settings.passingPercentage || 75}" min="50" max="100" />
+                <label class="form-label">Course Passing Standard</label>
+                <div class="form-control" style="height:auto;">${App.state.settings?.passingPercentage || 50}% (set in Admin Settings)</div>
               </div>
             </div>
             <div style="margin-top: 1rem; text-align: right;">
@@ -688,13 +860,11 @@ const Faculty = {
 
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3 style="font-size: 1.1rem; font-weight: 700;">Question Pool (${questions.length} items)</h3>
-            <button class="btn btn-success btn-sm" onclick="Faculty.autoGenerateForExistingTopic('${topicId}')">⚡ Auto-Generate</button>
           </div>
 
           ${questions.length === 0 ? `
             <div style="text-align: center; padding: 2.5rem; color: var(--gray-500); background: var(--gray-50); border-radius: var(--radius-md);">
               <p>No questions currently exist in this topic quiz bank.</p>
-              <button class="btn btn-primary btn-sm" style="margin-top: 0.75rem;" onclick="Faculty.autoGenerateForExistingTopic('${topicId}')">⚡ Auto-Generate Quiz Questions Now</button>
             </div>
           ` : qListHtml}
         </div>
@@ -704,43 +874,35 @@ const Faculty = {
     }
   },
 
-  async autoGenerateForExistingTopic(topicId) {
+  async regenerateQuizFromMaterial(topicId) {
     try {
-      const topRes = await App.api(`/api/topics/${topicId}`);
-      if (!topRes.success) return;
-
-      const t = topRes.topic;
-      const genQuestions = QuizGenerator.generateQuestions(t.title, t.lessonText || '', 10);
-
-      const qRes = await App.api(`/api/quizzes/${topicId}`);
-      const currentQs = qRes.questions || [];
-
-      // Combine without duplicates
-      const existingTextSet = new Set(currentQs.map(q => q.question));
-      let addedCount = 0;
-      for (const gq of genQuestions) {
-        if (!existingTextSet.has(gq.question)) {
-          currentQs.push(gq);
-          addedCount++;
-        }
+      const response = await App.api(`/api/topics/${topicId}`);
+      if (!response.success) throw new Error('Could not load the uploaded topic material.');
+      const html = new DOMParser().parseFromString(response.topic.lessonText || '', 'text/html');
+      const materialText = html.body.textContent || '';
+      const questions = QuizGenerator.generateQuestionsFromMaterial(materialText, 10);
+      if (questions.length < 4) {
+        App.toast('The stored material does not contain four clean definitions. Upload a clearer source or use Upload Quiz File.', 'warning');
+        return;
       }
-
-      await App.api(`/api/quizzes/${topicId}`, {
+      if (!confirm(`Replace this topic's current quiz with ${questions.length} questions generated from its uploaded material?`)) return;
+      const saved = await App.api(`/api/quizzes/${topicId}/generated`, {
         method: 'POST',
-        body: JSON.stringify({ questions: currentQs })
+        body: JSON.stringify({ questions })
       });
-
-      App.toast(`Successfully auto-generated and added ${addedCount} questions to quiz pool!`, 'success');
-      Faculty.openQuizManager(topicId);
-    } catch (err) {
-      App.toast('Failed to auto-generate questions: ' + err.message, 'danger');
+      if (!saved.success) throw new Error(saved.message || 'Could not replace the quiz.');
+      App.toast(`Replaced the quiz with ${questions.length} readable, material-based questions.`, 'success');
+      this.openQuizManager(topicId);
+    } catch (error) {
+      App.toast(error.message || 'Could not regenerate the quiz.', 'danger');
     }
   },
+
 
   async saveQuizSettings(topicId) {
     const timeLimitMinutes = parseInt(document.getElementById('setting-timer').value, 10);
     const maxQuestions = parseInt(document.getElementById('setting-max').value, 10);
-    const passingPercentage = parseInt(document.getElementById('setting-passing').value, 10);
+    const passingPercentage = Number(App.state.settings?.passingPercentage) || 50;
 
     try {
       const res = await App.api(`/api/quizzes/${topicId}`, {
@@ -756,100 +918,19 @@ const Faculty = {
   },
 
   openAddQuestionModal(topicId) {
-    App.showModal({
-      title: '➕ Insert Single Question',
-      body: `
-        <div class="form-group">
-          <label class="form-label">Question Text</label>
-          <textarea id="modal-q-text" class="form-control" placeholder="Type question prompt..."></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Option A</label>
-          <input type="text" id="modal-opt-0" class="form-control" placeholder="First choice" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Option B</label>
-          <input type="text" id="modal-opt-1" class="form-control" placeholder="Second choice" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Option C</label>
-          <input type="text" id="modal-opt-2" class="form-control" placeholder="Third choice" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Option D</label>
-          <input type="text" id="modal-opt-3" class="form-control" placeholder="Fourth choice" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Correct Option</label>
-          <select id="modal-correct-opt" class="form-control">
-            <option value="0">Option A</option>
-            <option value="1">Option B</option>
-            <option value="2">Option C</option>
-            <option value="3">Option D</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Explanation / Rationale</label>
-          <input type="text" id="modal-q-exp" class="form-control" placeholder="Why this option is correct" />
-        </div>
-      `,
-      confirmText: 'Save Question',
-      onConfirm: async () => {
-        const text = document.getElementById('modal-q-text').value.trim();
-        const o0 = document.getElementById('modal-opt-0').value.trim();
-        const o1 = document.getElementById('modal-opt-1').value.trim();
-        const o2 = document.getElementById('modal-opt-2').value.trim();
-        const o3 = document.getElementById('modal-opt-3').value.trim();
-        const correct = parseInt(document.getElementById('modal-correct-opt').value, 10);
-        const exp = document.getElementById('modal-q-exp').value.trim();
-
-        if (!text || !o0 || !o1) {
-          App.toast('Question and at least 2 options are required.', 'warning');
-          return;
-        }
-
-        const options = [o0, o1];
-        if (o2) options.push(o2);
-        if (o3) options.push(o3);
-
-        const newQ = {
-          id: 'q_' + Date.now(),
-          question: text,
-          options,
-          correctAnswer: correct,
-          explanation: exp
-        };
-
-        const qRes = await App.api(`/api/quizzes/${topicId}`);
-        const currentQs = qRes.questions || [];
-        currentQs.push(newQ);
-
-        const saveRes = await App.api(`/api/quizzes/${topicId}`, {
-          method: 'POST',
-          body: JSON.stringify({ questions: currentQs })
-        });
-
-        if (saveRes.success) {
-          App.toast('New question added to bank!', 'success');
-          Faculty.openQuizManager(topicId);
-        }
-      }
-    });
+    return this.openBulkImportModal(topicId);
   },
 
   openBulkImportModal(topicId) {
     App.showModal({
-      title: '📥 Bulk Upload Quiz / Text Import',
+      title: '📥 Upload Quiz File',
       body: `
         <div class="form-group">
-          <label class="form-label">Paste Questions in Standard Text / Database Format:</label>
-          <textarea id="modal-bulk-text" class="form-control" style="min-height: 180px; font-family: monospace; font-size: 0.85rem;" placeholder="1. What is the order of convergence for Newton-Raphson?
-A) Linear
-B) Quadratic
-C) Cubic
-D) Logarithmic
-Answer: B
-Explanation: Near a simple root, the Newton-Raphson method converges quadratically."></textarea>
+          <label class="form-label">Upload Quiz File (TXT, PDF, or PPTX)</label>
+          <input type="file" id="modal-quiz-file" class="form-control" accept=".txt,.pdf,.pptx" onchange="Faculty.readQuizFile(event, '${topicId}')" />
+          <small id="modal-quiz-estimate" style="color: #0071e3; display:block; margin-top:.25rem;"></small>
+          <small id="modal-quiz-file-status" style="color: var(--gray-500); display: block; margin-top: 0.35rem;">Upload a TXT, PDF, or PPTX containing numbered questions, A)–D) options, and Answer: B lines.</small>
+          <textarea id="modal-bulk-text" class="form-control" style="min-height: 180px; font-family: monospace; font-size: 0.85rem;" placeholder="The extracted quiz text will appear here for review." readonly></textarea>
           <small style="color: var(--gray-500); display: block; margin-top: 0.25rem;">
             Format: Numbered questions with A), B), C), D) options, followed by Answer: [Letter].
           </small>
@@ -862,13 +943,13 @@ Explanation: Near a simple root, the Newton-Raphson method converges quadratical
           </select>
         </div>
       `,
-      confirmText: 'Import Questions',
+      confirmText: 'Upload Quiz Questions',
       onConfirm: async () => {
         const rawText = document.getElementById('modal-bulk-text').value.trim();
         const mode = document.getElementById('modal-import-mode').value;
 
-        if (!rawText) {
-          App.toast('Please paste formatted questions to import.', 'warning');
+        if (!document.getElementById('modal-quiz-file')?.files?.length || !rawText) {
+          App.toast('Choose a quiz file before importing questions.', 'warning');
           return;
         }
 
@@ -884,6 +965,59 @@ Explanation: Near a simple root, the Newton-Raphson method converges quadratical
         } catch (e) {}
       }
     });
+  },
+
+  async readQuizFile(event, topicId) {
+    const file = event.target.files?.[0];
+    const status = document.getElementById('modal-quiz-file-status');
+    const textarea = document.getElementById('modal-bulk-text');
+    if (!file || !status || !textarea) return;
+    textarea.value = '';
+
+    this.startExtractionEstimate(file, 'modal-quiz-estimate');
+    status.textContent = `Reading ${file.name}...`;
+    try {
+      let rawText = '';
+      if (file.name.toLowerCase().endsWith('.txt')) {
+        rawText = await file.text();
+      } else {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+        }
+        const extracted = await App.api('/api/extract-document', {
+          method: 'POST',
+          body: JSON.stringify({ filename: file.name, dataBase64: btoa(binary) })
+        });
+        rawText = extracted.text || '';
+        if (extracted.format === 'PDF') {
+          const imageText = await this.extractPdfImageText(file, message => {
+            status.textContent = message;
+            const progress = message.match(/page (\d+) of (\d+)/i);
+            if (progress) this.renderExtractionEstimate(Number(progress[1]) / Number(progress[2]));
+          });
+          if (imageText) rawText += `\n${imageText}`;
+        } else if (extracted.format === 'PowerPoint' && extracted.embeddedImages?.length) {
+          const imageText = await this.extractEmbeddedImageText(extracted.embeddedImages, message => {
+            status.textContent = message;
+            const progress = message.match(/image (\d+) of (\d+)/i);
+            if (progress) this.renderExtractionEstimate(Number(progress[1]) / Number(progress[2]));
+          });
+          if (imageText) rawText += `\n${imageText}`;
+        }
+      }
+
+      textarea.value = rawText.replace(/^\[(?:Slide|Page)\s+\d+\]\s*/gmi, '').trim();
+      status.textContent = `Loaded text from ${file.name}. Review its question and answer format before importing.${this.pdfOcrWarning ? ` ${this.pdfOcrWarning}` : ''}`;
+      App.toast('Quiz file loaded. Review it, then upload its questions.', 'success');
+    } catch (error) {
+      status.textContent = error.message || 'Could not read this quiz file.';
+      App.toast(status.textContent, 'danger');
+    } finally {
+      this.finishExtractionEstimate();
+    }
   },
 
   async deleteQuestion(topicId, qIdx) {

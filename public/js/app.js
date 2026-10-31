@@ -1,5 +1,5 @@
 /**
- * ITPE PROJECT — Numerical Methods LMS
+ * ITPE PROJECT — System Administration & Maintenance LMS
  * Main Application Controller v2.0 — Premium Redesigned UI
  */
 
@@ -12,25 +12,15 @@ const App = {
     selectedTopicId: null,
     activeTopicTab: 'lesson',
     subject: null,
+    settings: { passingPercentage: 50 },
     topics: [],
     currentTopic: null,
     currentSlideIndex: 0
   },
 
   getLocalUsers() {
-    const saved = localStorage.getItem('itpe_users');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    const defaultUsers = [
-      { id: "usr_fac_1", idNumber: "TUPT-FAC-001", password: "faculty123", role: "faculty", firstName: "Maria Teresa", lastName: "Santos", privacyAgreed: true },
-      { id: "usr_stu_1", idNumber: "TUPT-23-1096", password: "student123", role: "student", firstName: "Juan", lastName: "Dela Cruz", privacyAgreed: true },
-      { id: "usr_stu_2", idNumber: "TUPT-23-1097", password: "student123", role: "student", firstName: "Maria Carmela", lastName: "Alvarez", privacyAgreed: true },
-      { id: "usr_stu_3", idNumber: "TUPT-23-1098", password: "student123", role: "student", firstName: "Carlo", lastName: "Reyes", privacyAgreed: true },
-      { id: "usr_stu_4", idNumber: "TUPT-23-1099", password: "student123", role: "student", firstName: "Kimberly", lastName: "Tan", privacyAgreed: true }
-    ];
-    localStorage.setItem('itpe_users', JSON.stringify(defaultUsers));
-    return defaultUsers;
+    localStorage.setItem('itpe_users', JSON.stringify([]));
+    return [];
   },
 
   isFacultyUser(user = this.state.user) {
@@ -47,24 +37,14 @@ const App = {
     return user;
   },
 
+  escapeHtml(value) {
+    const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(value ?? '').replace(/[&<>"']/g, character => entities[character]);
+  },
+
   async init() {
     this.bindEvents();
     this.getLocalUsers();
-
-    const cachedUser = localStorage.getItem('itpe_current_user');
-    if (cachedUser) {
-      try {
-        this.state.user = this.applyAdminRole(JSON.parse(cachedUser));
-        localStorage.setItem('itpe_current_user', JSON.stringify(this.state.user));
-        this.state.token = localStorage.getItem('itpe_token') || 'tok_local';
-        this.updateUserNav();
-        await this.loadSubject();
-        await this.loadTopics();
-        this.navigate('topics');
-        return;
-      } catch (e) {}
-    }
-
     if (this.state.token) {
       await this.checkAuth();
     } else {
@@ -76,7 +56,6 @@ const App = {
     const headers = {
       'Content-Type': 'application/json',
       ...(this.state.token ? { 'Authorization': `Bearer ${this.state.token}` } : {}),
-      ...(this.state.user ? { 'x-user-id': this.state.user.idNumber || this.state.user.id } : {}),
       ...(options.headers || {})
     };
     try {
@@ -92,18 +71,6 @@ const App = {
   },
 
   async checkAuth() {
-    const cachedUser = localStorage.getItem('itpe_current_user');
-    if (cachedUser) {
-      try {
-        this.state.user = this.applyAdminRole(JSON.parse(cachedUser));
-        localStorage.setItem('itpe_current_user', JSON.stringify(this.state.user));
-        this.updateUserNav();
-        await this.loadSubject();
-        await this.loadTopics();
-        this.navigate('topics');
-        return;
-      } catch (e) {}
-    }
     try {
       const res = await this.api('/api/auth/me');
       if (res.success && res.user) {
@@ -136,10 +103,10 @@ const App = {
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
         Settings
       </button>` : ''}
-      <button class="btn btn-ghost btn-sm" onclick="App.navigate('master-report')">
+      ${isFac ? `<button class="btn btn-ghost btn-sm" onclick="App.navigate('master-report')">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         Gradebook
-      </button>
+      </button>` : ''}
       <button class="btn btn-danger btn-sm" onclick="App.logout()">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
         Logout
@@ -150,7 +117,7 @@ const App = {
   async loadSubject() {
     try {
       const res = await this.api('/api/subject');
-      if (res.success) { this.state.subject = res.subject; this.renderSubjectBanner(); }
+      if (res.success) { this.state.subject = res.subject; this.state.settings = res.settings || { passingPercentage: 50 }; this.renderSubjectBanner(); }
     } catch (e) {}
   },
 
@@ -175,6 +142,7 @@ const App = {
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
               Upload Topic
             </button>
+            <button class="btn btn-secondary btn-sm" onclick="Faculty.openQuizUploadModal()">Upload Quiz</button>
             <button class="btn btn-secondary btn-sm" onclick="App.openSubjectModal()">Edit Details</button>
           ` : `<span class="topic-status-badge in-progress">
             <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/></svg>
@@ -196,6 +164,14 @@ const App = {
   },
 
   navigate(view, topicId = null) {
+    window.PatternWaves?.stop();
+    document.body.classList.remove('pattern-login');
+    window.MicroSlats?.start();
+    document.body.classList.add('portal-view');
+    document.body.classList.remove('registration-view');
+    if (this.state.currentView === 'quiz' && view !== 'quiz') {
+      clearInterval(Quiz.state.timerInterval);
+    }
     this.state.currentView = view;
     if (topicId) this.state.selectedTopicId = topicId;
 
@@ -205,6 +181,13 @@ const App = {
 
     const main = document.getElementById('main-content');
     main.innerHTML = '';
+    main.style.userSelect = '';
+    main.style.webkitUserSelect = '';
+    main.classList.remove('quiz-no-copy');
+    main.oncopy = null;
+    main.oncut = null;
+    main.oncontextmenu = null;
+    main.onkeydown = null;
 
     if (view === 'topics')           { this.loadTopics(); }
     else if (view === 'topic-detail'){ this.loadTopicDetail(topicId); }
@@ -223,23 +206,23 @@ const App = {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem">
           <div>
             <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.25rem">
-              <div style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#06b6d4);box-shadow:0 0 8px rgba(99,102,241,0.6)"></div>
-              <h2 style="font-size:1.25rem;font-weight:800;color:#f0f2ff;letter-spacing:-0.02em">Course Modules</h2>
+              <div class="module-heading-accent"></div>
+              <h2 class="module-section-title">Course Modules</h2>
               <span class="topic-status-badge in-progress">${topics.length} Topics</span>
             </div>
-            <p style="font-size:0.82rem;color:rgba(165,180,252,0.6)">
-              ${isFaculty ? 'Faculty portal — manage topics, upload materials, configure quizzes.' : 'Sequential learning — pass 75% to unlock the next module.'}
+            <p class="module-section-description">
+              ${isFaculty ? 'Faculty portal — manage topics, upload materials, configure quizzes.' : `Sequential learning — pass ${this.state.settings?.passingPercentage || 50}% to unlock the next module.`}
             </p>
           </div>
           <div style="display:flex;gap:0.5rem">
-            <button class="btn btn-secondary btn-sm" onclick="App.navigate('master-report')">
+            ${isFaculty ? `<button class="btn btn-secondary btn-sm" onclick="App.navigate('master-report')">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
               Gradebook
-            </button>
+            </button>` : ''}
             ${isFaculty ? `<button class="btn btn-primary btn-sm" onclick="Faculty.openNewTopicModal()">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-              Add Topic & Quiz
-            </button>` : ''}
+              Upload Topic
+            </button><button class="btn btn-secondary btn-sm" onclick="Faculty.openQuizUploadModal()">Upload Quiz</button>` : ''}
           </div>
         </div>
     `;
@@ -247,25 +230,26 @@ const App = {
     if (topics.length === 0) {
       if (isFaculty) {
         html += `
-          <div style="text-align:center;padding:4rem 2rem;border:2px dashed rgba(99,102,241,0.25);border-radius:20px;background:rgba(99,102,241,0.03)">
+          <div class="empty-curriculum-state">
             <div style="width:70px;height:70px;margin:0 auto 1.25rem;border-radius:18px;background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(6,182,212,0.1));border:1px solid rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;font-size:1.8rem">📐</div>
-            <h3 style="font-size:1.35rem;font-weight:800;color:#f0f2ff;margin-bottom:0.6rem">Curriculum is Empty</h3>
-            <p style="color:rgba(165,180,252,0.6);max-width:500px;margin:0 auto 2rem;line-height:1.7;font-size:0.9rem">
+            <h3 class="empty-curriculum-title">Curriculum is Empty</h3>
+            <p class="empty-curriculum-copy">
               Upload your first topic — lecture notes, slides, or even a <strong style="color:#a5b4fc">photo of your lecture material</strong>. 
-              Our AI engine reads the content and auto-generates the 10-minute 75% quiz instantly.
+              Upload course materials to prepare a topic. The admin can use its generated quiz or upload a separate quiz file.
             </p>
-            <button class="btn btn-primary" style="padding:0.8rem 2rem;font-size:0.95rem;border-radius:12px" onclick="Faculty.openNewTopicModal()">
+            <button class="btn btn-primary empty-curriculum-primary" onclick="Faculty.openNewTopicModal()">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-              Upload First Topic & Generate Quiz
+              Upload Topic
             </button>
+            <button class="btn btn-secondary empty-curriculum-secondary" onclick="Faculty.openQuizUploadModal()">Upload Quiz</button>
           </div>
         `;
       } else {
         html += `
-          <div style="text-align:center;padding:4rem 2rem;border:2px dashed rgba(99,102,241,0.15);border-radius:20px">
+          <div class="empty-curriculum-state empty-curriculum-state--student">
             <div style="width:70px;height:70px;margin:0 auto 1.25rem;border-radius:18px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;font-size:1.8rem">⏳</div>
-            <h3 style="font-size:1.25rem;font-weight:800;color:#f0f2ff;margin-bottom:0.5rem">No Modules Published Yet</h3>
-            <p style="color:rgba(165,180,252,0.5);max-width:440px;margin:0 auto;line-height:1.6;font-size:0.9rem">
+            <h3 class="empty-curriculum-title">No Modules Published Yet</h3>
+            <p class="empty-curriculum-copy">
               Your instructor hasn't uploaded any course modules yet. They'll appear here once published — check back soon!
             </p>
           </div>
@@ -282,11 +266,13 @@ const App = {
           actionButtons = `
             <button class="btn btn-primary btn-sm" onclick="App.navigate('topic-detail','${t.id}')">Open</button>
             <button class="btn btn-secondary btn-sm" onclick="Faculty.openQuizManager('${t.id}')">Quiz Editor</button>
+            <button class="btn btn-outline btn-sm" onclick="Faculty.openBulkImportModal('${t.id}')" title="Upload a quiz file">Upload Quiz</button>
             <button class="btn btn-ghost btn-sm" onclick="App.navigate('topic-report','${t.id}')">
               <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
             </button>
-            <button class="btn btn-danger btn-sm" onclick="Faculty.deleteTopic('${t.id}','${t.title.replace(/'/g,"\\'")}')">
+            <button class="btn btn-danger btn-sm" title="Delete topic" aria-label="Delete topic" onclick="Faculty.deleteTopic('${t.id}','${t.title.replace(/'/g,"\\'")}')">
               <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              Delete
             </button>
           `;
         } else {
@@ -324,7 +310,7 @@ const App = {
               ${statusBadge}
             </div>
             <div class="topic-card-body">
-              <p>Numerical methods lecture material, interactive slide deck, and timed 75% mastery quiz.</p>
+              <p>System administration lessons, maintenance guides, interactive slide decks, and timed mastery quizzes.</p>
             </div>
             <div class="topic-card-footer">
               ${actionButtons}
@@ -344,7 +330,7 @@ const App = {
       if (res.success) { this.state.currentTopic = res.topic; this.renderTopicDetailView(); }
     } catch (e) {
       if (e.message && e.message.includes('locked')) {
-        this.toast('Topic locked — pass the previous quiz with 75% first!', 'warning');
+        this.toast(`Topic locked — pass the previous quiz with ${this.state.settings?.passingPercentage || 50}% first!`, 'warning');
         this.navigate('topics');
       }
     }
@@ -364,7 +350,7 @@ const App = {
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
             <h3 style="font-size:1.1rem;font-weight:700;color:#f0f2ff;display:flex;align-items:center;gap:0.5rem">
               <span style="width:28px;height:28px;border-radius:8px;background:rgba(99,102,241,0.2);display:inline-flex;align-items:center;justify-content:center;font-size:0.85rem">📝</span>
-              Lesson Notes & Mathematical Formulation
+              Lesson Notes & Administration Procedures
             </h3>
             ${isFaculty ? `<button class="btn btn-secondary btn-sm" onclick="Faculty.openLessonEditor()">✏️ Edit</button>` : ''}
           </div>
@@ -452,7 +438,7 @@ const App = {
           <div style="margin-top:2rem;padding:1.35rem;background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(6,182,212,0.08));border-radius:14px;border:1px solid rgba(99,102,241,0.25);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
             <div>
               <h4 style="font-weight:700;color:#a5b4fc;margin-bottom:0.25rem">Ready for the Topic Assessment?</h4>
-              <p style="font-size:0.82rem;color:rgba(165,180,252,0.6)">10-minute timer · 75% passing threshold · Strict gating — pass to unlock the next module.</p>
+              <p style="font-size:0.82rem;color:rgba(165,180,252,0.6)">10-minute timer · ${t.quizSettings?.passingPercentage || 50}% passing threshold · Strict gating — pass to unlock the next module.</p>
             </div>
             <button class="btn btn-accent btn-lg" onclick="App.navigate('quiz','${t.id}')">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -524,6 +510,12 @@ const App = {
   },
 
   renderAuth(mode = 'login') {
+    window.PatternWaves?.stop();
+    document.body.classList.toggle('pattern-login', mode === 'login');
+    if (mode === 'login') window.MicroSlats?.stop();
+    else window.MicroSlats?.start();
+    document.body.classList.remove('portal-view');
+    document.body.classList.toggle('registration-view', mode === 'register');
     const main = document.getElementById('main-content');
     const banner = document.getElementById('subject-banner-area');
     if (banner) banner.innerHTML = '';
@@ -533,16 +525,22 @@ const App = {
     document.body.classList.add('landing-body');
 
     main.innerHTML = `
-      <div class="landing-page-root">
+      <div class="landing-page-root ${mode === 'login' ? 'security-auth-root' : ''}">
         <!-- Animated background mesh -->
         <div class="landing-bg-mesh"></div>
+        ${mode === 'login' ? `
+          <div class="security-hud security-hud-top-left" aria-hidden="true"><span>[ SYSTEM ]</span><br>&gt; Initializing secure connection...<br>&gt; Access level: Student / Faculty<span class="security-caret"></span></div>
+          <div class="security-hud security-hud-top-right" aria-hidden="true"><i></i> SECURE CONNECTION</div>
+          <div class="security-hud security-hud-bottom-right" aria-hidden="true">&gt; Verifying credentials...<br>&gt; Establishing session...<br>&gt; Ready.</div>
+          <div class="security-version" aria-hidden="true">ITPE • SYSTEM ADMINISTRATION</div>
+        ` : ''}
 
         <!-- Navigation -->
         <nav class="landing-nav">
           <div class="landing-nav-inner">
             <div class="landing-brand">
-              <div class="landing-brand-icon">Σ</div>
-              <span class="landing-brand-text">Numerical Methods</span>
+              <div class="landing-brand-icon">🖥️</div>
+              <span class="landing-brand-text">System Administration &amp; Maintenance</span>
             </div>
             <div class="landing-nav-links">
               <a href="#" class="landing-link active" onclick="event.preventDefault()">Home</a>
@@ -559,8 +557,8 @@ const App = {
             <!-- Left column -->
             <div class="landing-left">
               <p class="landing-tagline">LEARN &nbsp;•&nbsp; PRACTICE &nbsp;•&nbsp; MASTER</p>
-              <h1 class="landing-title">Numerical<br><span>Methods</span></h1>
-              <p class="landing-desc">Build mastery in numerical analysis with clear explanations, interactive exercises, OCR-powered quizzes, and real-world problem solving.</p>
+              <h1 class="landing-title">System Admin<br><span>&amp; Maintenance</span></h1>
+              <p class="landing-desc">Build practical skills in system administration and maintenance with clear lessons, interactive exercises, OCR-assisted quizzes, and real-world troubleshooting.</p>
 
               <div class="landing-features">
                 <div class="landing-feature-item">
@@ -584,18 +582,21 @@ const App = {
               </div>
 
               <!-- Floating illustration -->
-              <div class="landing-illustration">
-                <div class="illust-ground-shadow"></div>
-                <img src="/uploads/images/3.png" alt="Ruler" class="illust-img illust-ruler" />
-                <img src="/uploads/images/4.png" alt="Pyramid Depth" class="illust-img illust-pyramid-bg" />
-                <img src="/uploads/images/5.png" alt="Notes" class="illust-img illust-notepad" />
-                <img src="/uploads/images/6.png" alt="Calculator" class="illust-img illust-calc" />
-                <img src="/uploads/images/4.png" alt="Pyramid" class="illust-img illust-pyramid-main" />
-                <img src="/uploads/images/1.png" alt="Plus" class="illust-img illust-plus-1" />
-                <img src="/uploads/images/1.png" alt="Plus" class="illust-img illust-plus-2" />
-                <img src="/uploads/images/1.png" alt="Plus" class="illust-img illust-plus-3" />
-                <img src="/uploads/images/2.png" alt="Divide" class="illust-img illust-divide-1" />
-                <img src="/uploads/images/2.png" alt="Divide" class="illust-img illust-divide-2" />
+              <div class="landing-illustration system-admin-art" aria-hidden="true">
+                <div class="system-server-rack">
+                  <div class="system-server-unit"><span></span><span></span><i></i></div>
+                  <div class="system-server-unit"><span></span><span></span><i></i></div>
+                  <div class="system-server-unit"><span></span><span></span><i></i></div>
+                </div>
+                <div class="system-monitor">
+                  <div class="system-monitor-top"><i></i><i></i><i></i><span>ADMIN CONSOLE</span></div>
+                  <div class="system-terminal-line short"></div>
+                  <div class="system-terminal-line"></div>
+                  <div class="system-terminal-line medium"></div>
+                  <div class="system-terminal-status"><span></span> SYSTEM ONLINE</div>
+                </div>
+                <div class="system-network-node node-a"></div>
+                <div class="system-network-node node-b"></div>
               </div>
             </div>
 
@@ -609,12 +610,17 @@ const App = {
         </div>
       </div>
     `;
+    if (mode === 'login') window.PatternWaves?.start();
   },
 
   getLandingLoginHtml() {
     return `
-      <h2 class="auth-card-title">Welcome Back</h2>
-      <p class="auth-card-subtitle">Log in to continue your numerical methods journey.</p>
+      <div class="security-shield" aria-hidden="true">
+        <svg width="58" height="66" viewBox="0 0 58 66" fill="none"><path d="M29 3L52 12V29C52 44 42 55 29 62C16 55 6 44 6 29V12L29 3Z" stroke="currentColor" stroke-width="3"/><rect x="21" y="28" width="16" height="14" rx="2" fill="currentColor"/><path d="M24 28V23a5 5 0 0110 0v5" stroke="currentColor" stroke-width="3"/><circle cx="29" cy="34" r="2" fill="#09090b"/></svg>
+      </div>
+      <h2 class="auth-card-title">SYSTEM ADMINISTRATION</h2>
+      <p class="security-card-subtitle"><span></span>&amp; MAINTENANCE<span></span></p>
+      <p class="auth-card-subtitle">Sign in to access the learning materials</p>
 
       <form onsubmit="App.handleLogin(event)">
         <div class="auth-field-group">
@@ -640,26 +646,18 @@ const App = {
           </div>
         </div>
 
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.35rem">
-          <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;color:rgba(165,180,252,0.6);cursor:pointer">
-            <input type="checkbox" style="accent-color:#6366f1" /> Remember me
-          </label>
-          <a href="#" onclick="event.preventDefault()" style="font-size:0.8rem;color:#6366f1;font-weight:600;text-decoration:none">Forgot password?</a>
-        </div>
-
-        <button type="submit" class="auth-btn-primary">Log In</button>
+        <button type="submit" class="auth-btn-primary"><span aria-hidden="true">↪</span> Login</button>
       </form>
 
-      <div class="auth-divider"><span>OR</span></div>
-      <button type="button" class="auth-btn-outline" onclick="App.renderAuth('register')">Create an Account</button>
-      <p class="auth-footer-text">Don't have an account? <a href="#" onclick="App.renderAuth('register');event.preventDefault()">Register</a></p>
+      <div class="security-card-separator"><span>///</span></div>
+      <p class="auth-footer-text">Need an account? <a href="#" onclick="App.renderAuth('register');event.preventDefault()">Register</a></p>
     `;
   },
 
   getLandingRegisterHtml() {
     return `
       <h2 class="auth-card-title">Create Account</h2>
-      <p class="auth-card-subtitle">Register to start learning numerical methods.</p>
+      <p class="auth-card-subtitle">Register to start learning System Administration and Maintenance.</p>
 
       <form onsubmit="App.handleRegister(event)">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.65rem">
@@ -687,21 +685,10 @@ const App = {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.65rem">
-          <div class="auth-field-group">
-            <label class="auth-label">Role</label>
-            <div class="auth-input-wrap">
-              <select id="reg-role" class="auth-input" style="padding-left:0.85rem;cursor:pointer">
-                <option value="student">Student</option>
-                <option value="faculty">Faculty</option>
-              </select>
-            </div>
-          </div>
-          <div class="auth-field-group">
-            <label class="auth-label">Password</label>
-            <div class="auth-input-wrap">
-              <input type="password" id="reg-password" class="auth-input" required placeholder="Create password" style="padding-left:0.85rem" />
-            </div>
+        <div class="auth-field-group">
+          <label class="auth-label">Password</label>
+          <div class="auth-input-wrap">
+            <input type="password" id="reg-password" class="auth-input" required placeholder="Create password" style="padding-left:0.85rem" />
           </div>
         </div>
 
@@ -741,23 +728,6 @@ const App = {
     const submitBtn = e.target.querySelector('button[type="submit"]');
     if (submitBtn) { submitBtn.classList.add('btn-loading'); submitBtn.textContent = 'Logging in...'; }
 
-    const users = this.getLocalUsers();
-    const localUser = users.find(u => (u.idNumber || '').toUpperCase() === idNumber && u.password === password);
-
-    if (localUser) {
-      this.state.user = this.applyAdminRole(localUser);
-      localStorage.setItem('itpe_users', JSON.stringify(users));
-      this.state.token = 'tok_local_' + Date.now();
-      localStorage.setItem('itpe_token', this.state.token);
-      localStorage.setItem('itpe_current_user', JSON.stringify(this.state.user));
-      this.toast(`Welcome back, ${localUser.firstName}! 👋`, 'success');
-      this.updateUserNav();
-      await this.loadSubject();
-      await this.loadTopics();
-      this.navigate('topics');
-      return;
-    }
-
     try {
       const res = await this.api('/api/auth/login', { method: 'POST', body: JSON.stringify({ idNumber, password }) });
       if (res.success) {
@@ -765,11 +735,6 @@ const App = {
         this.state.user = this.applyAdminRole(res.user);
         localStorage.setItem('itpe_token', res.token);
         localStorage.setItem('itpe_current_user', JSON.stringify(this.state.user));
-        const curUsers = this.getLocalUsers();
-        if (!curUsers.some(u => (u.idNumber || '').toUpperCase() === idNumber)) {
-          curUsers.push({ ...res.user, password });
-          localStorage.setItem('itpe_users', JSON.stringify(curUsers));
-        }
         this.toast(`Welcome back, ${res.user.firstName}! 👋`, 'success');
         this.updateUserNav();
         await this.loadSubject();
@@ -777,7 +742,7 @@ const App = {
         this.navigate('topics');
       }
     } catch (err) {
-      this.toast('Invalid ID or password. Please check your credentials.', 'danger');
+      this.toast(err.message || 'Invalid ID or password. Please check your credentials.', 'danger');
       if (submitBtn) { submitBtn.classList.remove('btn-loading'); submitBtn.textContent = 'Log In'; }
     }
   },
@@ -787,8 +752,6 @@ const App = {
     const firstName = (document.getElementById('reg-firstname')?.value || '').trim();
     const lastName  = (document.getElementById('reg-lastname')?.value || '').trim();
     const idNumber  = (document.getElementById('reg-idnumber')?.value || '').trim().toUpperCase();
-    const role      = document.getElementById('reg-role')?.value || 'student';
-    const assignedRole = idNumber === this.adminId ? 'faculty' : role;
     const password  = document.getElementById('reg-password')?.value || '';
     const privacyAgreed = document.getElementById('reg-privacy')?.checked;
 
@@ -798,34 +761,27 @@ const App = {
     if (!password)  { this.toast('Please create a Password.', 'warning'); return; }
     if (!privacyAgreed) { this.toast('You must agree to the Data Privacy terms.', 'warning'); return; }
 
-    const users = this.getLocalUsers();
-    const existingIndex = users.findIndex(u => (u.idNumber || '').toUpperCase() === idNumber);
-    const newUser = {
-      id: existingIndex >= 0 ? users[existingIndex].id : 'usr_' + Date.now(),
-      idNumber, firstName, lastName, role: assignedRole, password,
-      privacyAgreed: true, privacyAgreedAt: new Date().toISOString()
-    };
-
-    if (existingIndex >= 0) users[existingIndex] = newUser;
-    else users.push(newUser);
-    localStorage.setItem('itpe_users', JSON.stringify(users));
-
-    this.state.user = newUser;
-    this.state.token = 'tok_local_' + Date.now();
-    localStorage.setItem('itpe_token', this.state.token);
-    localStorage.setItem('itpe_current_user', JSON.stringify(newUser));
-
-    fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ firstName, lastName, idNumber, role: assignedRole, password, privacyAgreed })
-    }).catch(() => {});
-
-    this.toast(`Registration successful! Welcome, ${firstName}! 🎉`, 'success');
-    this.updateUserNav();
-    await this.loadSubject();
-    await this.loadTopics();
-    this.navigate('topics');
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Registering...'; }
+    try {
+      const res = await this.api('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ firstName, lastName, idNumber, password, privacyAgreed })
+      });
+      this.state.user = this.applyAdminRole(res.user);
+      this.state.token = res.token;
+      localStorage.setItem('itpe_token', res.token);
+      localStorage.setItem('itpe_current_user', JSON.stringify(this.state.user));
+      this.toast(`Registration successful! Welcome, ${firstName}! 🎉`, 'success');
+      this.updateUserNav();
+      await this.loadSubject();
+      await this.loadTopics();
+      this.navigate('topics');
+    } catch (err) {
+      this.toast(err.message || 'Registration failed. Please try again.', 'danger');
+    } finally {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Complete Registration'; }
+    }
   },
 
   logout() {
@@ -845,7 +801,7 @@ const App = {
       body: `
         <div style="font-size:0.88rem;line-height:1.7;color:rgba(165,180,252,0.8)">
           <p><strong style="color:#f0f2ff">Republic Act No. 10173 (Data Privacy Act of 2012)</strong></p>
-          <p style="margin-top:0.5rem">The Numerical Methods Course Portal safeguards student identification data and academic quiz records.</p>
+          <p style="margin-top:0.5rem">The System Administration and Maintenance Course Portal safeguards student identification data and academic quiz records.</p>
           <h4 style="color:#a5b4fc;margin-top:1rem;font-weight:700">Information Collected:</h4>
           <ul style="margin-left:1.25rem;margin-top:0.35rem;display:flex;flex-direction:column;gap:0.3rem">
             <li>Full Name for official gradebook identification</li>
@@ -866,9 +822,15 @@ const App = {
 
   openSubjectModal() {
     const s = this.state.subject;
+    const passingPercentage = Number(this.state.settings?.passingPercentage) || 50;
     this.showModal({
-      title: '⚙️ Edit Subject Details',
+      title: 'Admin Settings & Subject Details',
       body: `
+        <div class="form-group">
+          <label class="form-label">Course Passing Grade (%)</label>
+          <input type="number" id="modal-passing-grade" class="form-control" value="${passingPercentage}" min="1" max="100" required />
+          <small>Default: 50%. This standard applies to all topics and controls quiz progression.</small>
+        </div>
         <div class="form-group">
           <label class="form-label">Subject Name</label>
           <input type="text" id="modal-sub-name" class="form-control" value="${s.name}" />
@@ -892,9 +854,14 @@ const App = {
         const code = document.getElementById('modal-sub-code').value;
         const term = document.getElementById('modal-sub-term').value;
         const yearLevel = document.getElementById('modal-sub-year').value;
+        const passingPercentage = Number(document.getElementById('modal-passing-grade').value);
+        if (!Number.isFinite(passingPercentage) || passingPercentage < 1 || passingPercentage > 100) {
+          App.toast('Passing grade must be from 1% to 100%.', 'danger');
+          return;
+        }
         try {
-          const res = await App.api('/api/subject', { method: 'PUT', body: JSON.stringify({ name, code, term, yearLevel }) });
-          if (res.success) { App.state.subject = res.subject; App.renderSubjectBanner(); App.toast('Subject details updated!', 'success'); }
+          const res = await App.api('/api/subject', { method: 'PUT', body: JSON.stringify({ name, code, term, yearLevel, passingPercentage }) });
+          if (res.success) { App.state.subject = res.subject; App.state.settings = res.settings; App.renderSubjectBanner(); App.closeModal(); App.toast('Admin settings updated!', 'success'); }
         } catch (e) {}
       }
     });

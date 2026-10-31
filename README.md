@@ -1,7 +1,7 @@
-# Numerical Methods - Learning Management & Assessment Portal
+# System Administration and Maintenance - Learning Management & Assessment Portal
 ### Full-Stack Modular Course & Assessment System with Strict Progression Gating
 
-A lightweight, self-contained educational web application implementing the whiteboard architecture specifically adapted for **Numerical Methods** with **Student ID-based authentication (`TUPT-23-1096`)** and **dynamic topic management**.
+A lightweight, self-contained educational web application for **System Administration and Maintenance**, with **Student ID-based authentication** and **dynamic topic management**.
 
 ---
 
@@ -10,12 +10,12 @@ A lightweight, self-contained educational web application implementing the white
 | Whiteboard Item | Specification | Implementation in System |
 | :--- | :--- | :--- |
 | **1. Login & Register** | • No username — uses **Student ID / Faculty ID**<br>• Sample format hint: `TUPT-23-1096`<br>• Password & Role selection (Student/Faculty)<br>• Data Privacy (R.A. 10173) consent | • Direct login via ID Number (`TUPT-23-1096` / `TUPT-FAC-001`) + Password.<br>• Subtle sample format indicator (`Format: TUPT-YY-XXXX`).<br>• R.A. 10173 Privacy consent modal and registration validation.<br>• 1-Click quick evaluation logins for the panel. |
-| **2. Subject Name** | • **Numerical Methods**<br>• Code, Term/Semester, Year Level | • Pre-configured as **Numerical Methods** (`MATH 313 / NUM-MET`).<br>• Displays in top header and official grade reports.<br>• Editable by faculty via "Subject Info". |
-| **3. TOC (Table of Contents)** | • Dynamic list of topics: 1, 2, 3...<br>• Configurable by professor | • Topics count and order are **100% dynamic** based on what the professor adds or removes.<br>• Real-time progression locking: `Passed (≥75%)`, `Unlocked`, `Locked`, and `Failed`. |
-| **4. Topic Module Content** | • Insert text (Lesson notes)<br>• Upload presentation (PDF/PPTX)<br>• Make your own inside (Slide deck)<br>• Summary | • 4 sub-views: Lecture Notes, Uploaded Deck (.pdf/.pptx), Built-in interactive slide deck with presentation controls, and Key Formulas/Summary.<br>• In-browser editing tools for faculty. |
-| **5. Quiz Engine** | • 10-minute countdown timer<br>• 75% passing threshold<br>• **Strict rule:** *can't proceed to next topic if FAILED QUIZ - repeat topic*<br>• Insert text / Upload own / Make inside | • Live 10:00 timer with auto-submit.<br>• Gating logic: `< 75%` blocks access to next topic and instructs student to repeat the module; `≥ 75%` unlocks subsequent module.<br>• 3 creation modes: manual question input, bulk format parser, and question builder. |
+| **2. Subject Name** | • **System Administration and Maintenance**<br>• Code, Term/Semester, Year Level | • Pre-configured as **System Administration and Maintenance** (`SYS-ADMIN`).<br>• Displays in top header and official grade reports.<br>• Editable by faculty via Settings. |
+| **3. TOC (Table of Contents)** | • Dynamic list of topics: 1, 2, 3...<br>• Configurable by faculty | • Topic count and order are dynamic based on faculty uploads and deletions.<br>• Progression uses the admin-configured passing grade (default: 50%). |
+| **4. Topic Module Content** | • Insert text (Lesson notes)<br>• Upload presentation (PDF/PPTX)<br>• Make your own inside (Slide deck)<br>• Summary | • 4 sub-views: Administration procedures, uploaded guides, interactive slide deck, and maintenance summary.<br>• In-browser editing tools for faculty. |
+| **5. Quiz Engine** | • Configurable countdown timer and passing threshold<br>• **Strict rule:** students must pass before opening the next topic<br>• Upload or enter quiz questions | • Timer and passing grade are configurable by faculty; the default passing grade is 50%.<br>• Students who do not pass must retry before progression unlocks.<br>• Faculty can upload a quiz file or use questions generated from readable uploaded material. |
 | **6. Topic Quiz Summary** | • Print / PDF / Spreadsheet (CSV)<br>• Sorted by surname<br>• Sorted by score | • Table with 1-click sorting toggles (**Surname A-Z** / **Score High-to-Low**).<br>• Formatted print view with university header & instructor signature blocks.<br>• CSV spreadsheet download. |
-| **7. Repeat for Other Topics** | • Scalable multi-topic engine | • Professor can add new Numerical Methods topics (e.g. Interpolation, Numerical Integration, Runge-Kutta) or delete topics dynamically. |
+| **7. Repeat for Other Topics** | • Scalable multi-topic engine | • Faculty can add or delete topics such as operating systems, server management, network services, security, backup, and maintenance. |
 | **8. Master Summary of ALL Quiz Scores** | • Consolidated score per student<br>• Print / PDF / Spreadsheet | • Cross-topic gradebook matrix displaying scores across all active topics, total earned, overall percentage, and academic standing.<br>• Export to Print, PDF, and Spreadsheet (CSV). |
 
 ---

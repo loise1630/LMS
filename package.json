@@ -1,7 +1,7 @@
 {
   "name": "itpe-learning-management-system",
   "version": "1.0.0",
-  "description": "ITPE Modular Course & Assessment System with strict 75% quiz progression gating",
+  "description": "System Administration and Maintenance learning portal with student ID authentication and upload-based assessments",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -17,7 +17,9 @@
   "author": "ITPE Team",
   "license": "MIT",
   "dependencies": {
+    "adm-zip": "^0.6.1",
     "ogl": "^1.0.11",
+    "pdfjs-dist": "^6.4.299",
     "pg": "^8.23.1"
   }
 }
