@@ -1,0 +1,19 @@
+{
+  "name": "itpe-learning-management-system",
+  "version": "1.0.0",
+  "description": "ITPE Modular Course & Assessment System with strict 75% quiz progression gating",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "itpe",
+    "lms",
+    "assessment",
+    "quiz-progression",
+    "gradebook"
+  ],
+  "author": "ITPE Team",
+  "license": "MIT"
+}

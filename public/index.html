@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Numerical Methods - Learning Management & Assessment Portal</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+  <!-- Top Sticky Navigation Bar -->
+  <header class="top-nav">
+    <div class="nav-container">
+      <div class="brand-section" style="cursor: pointer;" onclick="if(App.state.user) App.navigate('topics')">
+        <div class="brand-icon">📐</div>
+        <div class="brand-text">
+          <h1>Numerical Methods</h1>
+          <p>Modular Learning & Automated Progression System</p>
+        </div>
+      </div>
+      <div class="nav-actions" id="user-nav-area">
+        <!-- Dynamically rendered by app.js -->
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Application Body -->
+  <main class="main-wrapper">
+    <!-- Secondary Subject Banner (Subject Name, Code, Term, Year Level) -->
+    <div id="subject-banner-area"></div>
+
+    <!-- Active View Area (TOC, Topic Detail, Quiz, Reports) -->
+    <div id="main-content">
+      <!-- Loaded dynamically via SPA router -->
+    </div>
+  </main>
+
+  <!-- Modal Container Root -->
+  <div id="modal-root"></div>
+
+  <!-- Toast Notifications Root -->
+  <div id="toast-root" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; max-width: 380px;"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="/js/quiz-generator.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/quiz.js"></script>
+  <script src="/js/reports.js"></script>
+  <script src="/js/faculty.js"></script>
+</body>
+</html>
+

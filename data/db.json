@@ -1,0 +1,72 @@
+{
+  "subject": {
+    "name": "Numerical Methods",
+    "code": "MATH 313 / NUM-MET",
+    "term": "1st Semester, A.Y. 2026-2027",
+    "yearLevel": "3rd Year - BSIT / Engineering"
+  },
+  "users": [
+    {
+      "id": "usr_fac_1",
+      "idNumber": "TUPT-FAC-001",
+      "password": "faculty123",
+      "role": "faculty",
+      "firstName": "Maria Teresa",
+      "lastName": "Santos",
+      "privacyAgreed": true,
+      "privacyAgreedAt": "2026-08-15T08:00:00.000Z"
+    },
+    {
+      "id": "usr_stu_1",
+      "idNumber": "TUPT-23-1096",
+      "password": "student123",
+      "role": "student",
+      "firstName": "Juan",
+      "lastName": "Dela Cruz",
+      "privacyAgreed": true,
+      "privacyAgreedAt": "2026-08-20T09:15:00.000Z"
+    },
+    {
+      "id": "usr_stu_2",
+      "idNumber": "TUPT-23-1097",
+      "password": "student123",
+      "role": "student",
+      "firstName": "Maria Carmela",
+      "lastName": "Alvarez",
+      "privacyAgreed": true,
+      "privacyAgreedAt": "2026-08-20T09:20:00.000Z"
+    },
+    {
+      "id": "usr_stu_3",
+      "idNumber": "TUPT-23-1098",
+      "password": "student123",
+      "role": "student",
+      "firstName": "Carlo",
+      "lastName": "Reyes",
+      "privacyAgreed": true,
+      "privacyAgreedAt": "2026-08-20T09:30:00.000Z"
+    },
+    {
+      "id": "usr_stu_4",
+      "idNumber": "TUPT-23-1099",
+      "password": "student123",
+      "role": "student",
+      "firstName": "Kimberly",
+      "lastName": "Tan",
+      "privacyAgreed": true,
+      "privacyAgreedAt": "2026-08-20T10:05:00.000Z"
+    },
+    {
+      "id": "usr_stu_5",
+      "idNumber": "TUPT-23-1100",
+      "password": "student123",
+      "role": "student",
+      "firstName": "Mark Anthony",
+      "lastName": "Bautista",
+      "privacyAgreed": true,
+      "privacyAgreedAt": "2026-08-20T10:15:00.000Z"
+    }
+  ],
+  "topics": [],
+  "submissions": []
+}
