@@ -13,8 +13,32 @@ const AdmZip = require('adm-zip');
 
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'data', 'db.json');
+
+// Read .env if present
+const ENV_FILE = path.join(__dirname, '.env');
+if (fs.existsSync(ENV_FILE)) {
+  try {
+    const envLines = fs.readFileSync(ENV_FILE, 'utf8').split(/\r?\n/);
+    for (const line of envLines) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx !== -1) {
+          const k = trimmed.slice(0, eqIdx).trim();
+          let v = trimmed.slice(eqIdx + 1).trim();
+          if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+            v = v.slice(1, -1);
+          }
+          if (!process.env[k]) process.env[k] = v;
+        }
+      }
+    }
+  } catch (e) {}
+}
+
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/itpe_portal';
-const pgPool = new Pool({ connectionString: DATABASE_URL });
+let pgPool = null;
+let usePostgres = false;
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
@@ -83,25 +107,61 @@ async function verifyPassword(password, storedValue) {
 }
 
 async function loadDB() {
-  await pgPool.query(`
-    CREATE TABLE IF NOT EXISTS app_state (
-      id SMALLINT PRIMARY KEY CHECK (id = 1),
-      state JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
+  let pgSuccess = false;
 
-  const result = await pgPool.query('SELECT state FROM app_state WHERE id = 1');
-  if (result.rows.length) {
-    db = result.rows[0].state;
-  } else if (fs.existsSync(DB_FILE)) {
-    // One-time migration from the previous JSON database.
-    db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    await saveDB();
-    console.log('Migrated data/db.json into PostgreSQL.');
-  } else {
-    db = getInitialDB();
-    await saveDB();
+  try {
+    const candidatePool = new Pool({
+      connectionString: DATABASE_URL,
+      connectionTimeoutMillis: 2500
+    });
+    const client = await candidatePool.connect();
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS app_state (
+          id SMALLINT PRIMARY KEY CHECK (id = 1),
+          state JSONB NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+
+      const result = await client.query('SELECT state FROM app_state WHERE id = 1');
+      pgPool = candidatePool;
+      usePostgres = true;
+      pgSuccess = true;
+
+      if (result.rows.length) {
+        db = result.rows[0].state;
+      } else if (fs.existsSync(DB_FILE)) {
+        db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+        await saveDB();
+        console.log('[PostgreSQL] Migrated data/db.json into PostgreSQL table app_state.');
+      } else {
+        db = getInitialDB();
+        await saveDB();
+      }
+    } finally {
+      client.release();
+    }
+  } catch (pgErr) {
+    console.warn(`[Database] PostgreSQL unavailable (${pgErr.message || 'connection failed'}).`);
+    console.warn(`[Database] Falling back seamlessly to local storage: data/db.json`);
+    usePostgres = false;
+    pgPool = null;
+  }
+
+  if (!pgSuccess) {
+    if (fs.existsSync(DB_FILE)) {
+      try {
+        db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      } catch (e) {
+        console.error('Error reading data/db.json, initializing default DB state:', e);
+        db = getInitialDB();
+        await saveDB();
+      }
+    } else {
+      db = getInitialDB();
+      await saveDB();
+    }
   }
 
   // Remove untouched demo accounts from existing databases; keep actual registrations.
@@ -124,6 +184,7 @@ async function loadDB() {
   const submissionCountBeforeCleanup = db.submissions.length;
   db.submissions = db.submissions.filter(submission => registeredUserIds.has(submission.userId));
   const hasUnmarkedRegisteredStudents = db.users.some(user => user.role === 'student' && !user.registeredAt);
+  const hasUnmarkedEnrollment = db.users.some(user => user.role === 'student' && user.enrollmentStatus !== 'enrolled');
   const hasLegacyFacultyRoles = db.users.some(user => user.role === 'faculty' && String(user.idNumber || '').toUpperCase() !== ADMIN_ID);
   let passwordsMigrated = false;
   for (const user of db.users) {
@@ -132,13 +193,17 @@ async function loadDB() {
     if (user.role === 'student' && !user.registeredAt) {
       user.registeredAt = user.privacyAgreedAt || new Date().toISOString();
     }
+    if (user.role === 'student') {
+      user.enrollmentStatus = 'enrolled';
+      if (!user.enrolledAt) user.enrolledAt = user.registeredAt;
+    }
     if (typeof user.password === 'string' && !user.password.startsWith('scrypt$')) {
       user.password = await hashPassword(user.password);
       passwordsMigrated = true;
     }
   }
   if (db.users.length !== userCountBeforeDemoCleanup || db.submissions.length !== submissionCountBeforeCleanup ||
-      hasUnmarkedRegisteredStudents || hasLegacyFacultyRoles || passwordsMigrated) await saveDB();
+      hasUnmarkedRegisteredStudents || hasUnmarkedEnrollment || hasLegacyFacultyRoles || passwordsMigrated) await saveDB();
 
   // Backfill application settings for databases created before admin settings existed.
   if (!db.settings) {
@@ -160,15 +225,27 @@ async function loadDB() {
 }
 
 function saveDB() {
-  const snapshot = JSON.stringify(db);
-  saveQueue = saveQueue
-    .then(() => pgPool.query(
-      `INSERT INTO app_state (id, state, updated_at) VALUES (1, $1::jsonb, NOW())
-       ON CONFLICT (id) DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()`,
-      [snapshot]
-    ))
-    .catch(err => console.error('Error saving PostgreSQL state:', err));
-  return saveQueue;
+  // Always persist to local DB_FILE as reliable backup
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Error saving local JSON database:', err);
+  }
+
+  // If PostgreSQL is active, also persist to PostgreSQL
+  if (usePostgres && pgPool) {
+    const snapshot = JSON.stringify(db);
+    saveQueue = saveQueue
+      .then(() => pgPool.query(
+        `INSERT INTO app_state (id, state, updated_at) VALUES (1, $1::jsonb, NOW())
+         ON CONFLICT (id) DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()`,
+        [snapshot]
+      ))
+      .catch(err => console.error('Error saving PostgreSQL state:', err));
+    return saveQueue;
+  }
+
+  return Promise.resolve();
 }
 
 // Active sessions: token -> user
@@ -557,7 +634,8 @@ const server = http.createServer(async (req, res) => {
           lastName: cleanLast,
           privacyAgreed: true,
           privacyAgreedAt: new Date().toISOString(),
-          registeredAt: new Date().toISOString()
+          registeredAt: new Date().toISOString(),
+          ...(cleanId === ADMIN_ID ? {} : { enrollmentStatus: 'enrolled', enrolledAt: new Date().toISOString() })
         };
 
         db.users.push(newUser);
@@ -571,6 +649,8 @@ const server = http.createServer(async (req, res) => {
             id: newUser.id,
             idNumber: newUser.idNumber,
             role: effectiveRole(newUser),
+            enrollmentStatus: newUser.enrollmentStatus || null,
+            enrolledAt: newUser.enrolledAt || null,
             firstName: newUser.firstName,
             lastName: newUser.lastName,
             privacyAgreed: newUser.privacyAgreed,
@@ -758,6 +838,10 @@ const server = http.createServer(async (req, res) => {
           return sendJson(res, 403, { success: false, message: 'Faculty authorization required.' });
         }
         const body = await parseBody(req);
+        const requestedTimeLimit = Number(body.quizSettings?.timeLimitMinutes ?? 10);
+        if (!Number.isInteger(requestedTimeLimit) || requestedTimeLimit < 1 || requestedTimeLimit > 180) {
+          return sendJson(res, 400, { success: false, message: 'Quiz time limit must be between 1 and 180 minutes.' });
+        }
         const newOrder = db.topics.length + 1;
         const newTopic = {
           id: 'top_' + Date.now(),
@@ -769,12 +853,12 @@ const server = http.createServer(async (req, res) => {
             fileUrl: body.presentationFileUrl || (body.presentation ? body.presentation.fileUrl : ''),
             isUploaded: !!(body.presentationFileUrl || (body.presentation && body.presentation.fileUrl))
           },
-          slides: body.slides || [
+          slides: Array.isArray(body.slides) ? body.slides : [
             { title: `Slide 1: Topic ${newOrder} Overview`, content: "• System concepts and administration tasks\n• Maintenance procedures\n• Security and troubleshooting practices" }
           ],
-          summary: body.summary || '<p>Summary of system administration concepts, maintenance procedures, and troubleshooting practices.</p>',
+          summary: body.summary !== undefined ? body.summary : '<p>Summary of system administration concepts, maintenance procedures, and troubleshooting practices.</p>',
           quizSettings: {
-            timeLimitMinutes: 10,
+            timeLimitMinutes: requestedTimeLimit,
             maxQuestions: 20,
             ...(body.quizSettings || {}),
             passingPercentage: Number(db.settings.passingPercentage) || 50
@@ -892,8 +976,12 @@ const server = http.createServer(async (req, res) => {
           }
           const body = await parseBody(req);
           if (body.quizSettings) {
+            const timeLimitMinutes = Number(body.quizSettings.timeLimitMinutes);
+            if (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1 || timeLimitMinutes > 180) {
+              return sendJson(res, 400, { success: false, message: 'Quiz time limit must be between 1 and 180 minutes.' });
+            }
             topic.quizSettings = {
-              timeLimitMinutes: Number(body.quizSettings.timeLimitMinutes) || 10,
+              timeLimitMinutes,
               maxQuestions: Number(body.quizSettings.maxQuestions) || 20,
               passingPercentage: Number(db.settings.passingPercentage) || 50
             };
@@ -1249,6 +1337,14 @@ const server = http.createServer(async (req, res) => {
           }
 
           const overallPercentage = totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0;
+          const quizAttempts = db.submissions.filter(s => s.userId === student.id).length;
+          const overallStatus = quizAttempts === 0
+            ? 'NOT STARTED'
+            : overallPercentage >= (Number(db.settings.passingPercentage) || 50) && passedAll
+              ? 'PASSED'
+              : overallPercentage >= (Number(db.settings.passingPercentage) || 50)
+                ? 'IN PROGRESS'
+                : 'NEEDS RETAKE';
 
           studentRows.push({
             studentId: student.id,
@@ -1260,8 +1356,8 @@ const server = http.createServer(async (req, res) => {
             totalEarned,
             totalPossible,
             overallPercentage,
-            quizAttempts: db.submissions.filter(s => s.userId === student.id).length,
-            overallStatus: overallPercentage >= (Number(db.settings.passingPercentage) || 50) && passedAll ? 'PASSED' : (overallPercentage >= (Number(db.settings.passingPercentage) || 50) ? 'IN PROGRESS' : 'NEEDS RETAKE')
+            quizAttempts,
+            overallStatus
           });
         }
 
@@ -1381,16 +1477,16 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-// Connect to the local PostgreSQL database before accepting requests.
+// Initialize database before accepting requests.
 loadDB().then(() => {
   server.listen(PORT, () => {
     console.log(`=======================================================`);
     console.log(`System Administration and Maintenance Portal running on http://localhost:${PORT}`);
-    console.log(`Database: PostgreSQL (${DATABASE_URL.replace(/:[^:@/]+@/, ':****@')})`);
+    console.log(`Storage: ${usePostgres ? 'PostgreSQL (' + DATABASE_URL.replace(/:[^:@/]+@/, ':****@') + ')' : 'Local JSON file (data/db.json)'}`);
     console.log(`Authentication Mode: Student ID (Format: TUPT-23-1096)`);
     console.log(`=======================================================`);
   });
 }).catch(err => {
-  console.error('Could not initialize PostgreSQL. Check that PostgreSQL is running and DATABASE_URL is correct.', err);
+  console.error('Could not initialize database:', err);
   process.exit(1);
 });

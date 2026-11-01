@@ -63,20 +63,20 @@ const Reports = {
 
         <div class="no-print" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
           <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅️ Back to Table of Contents</button>
-            <button class="btn btn-outline btn-sm" onclick="App.navigate('topic-detail', '${t.id}')">📖 Open Lesson</button>
+            <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅ Back to Table of Contents</button>
+            <button class="btn btn-outline btn-sm" onclick="App.navigate('topic-detail', '${t.id}')"> Open Lesson</button>
           </div>
 
           <!-- Whiteboard Export Options: Print, PDF, Spreadsheet -->
           <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
             <button class="btn btn-primary btn-sm" onclick="Reports.printReport()">
-              🖨️ Print Report
+               Print Report
             </button>
             <button class="btn btn-outline btn-sm" onclick="Reports.exportPdf()">
-              📄 Save / Export PDF
+               Save / Export PDF
             </button>
             <button type="button" onclick="Reports.downloadCsv('/api/reports/topic/${t.id}?sort=${this.state.topicSortBy}&order=${this.state.topicSortOrder}&format=csv', 'topic-${t.order}-gradebook.csv')" class="btn btn-success btn-sm">
-              📊 Export Spreadsheet (CSV)
+               Export Spreadsheet (CSV)
             </button>
           </div>
         </div>
@@ -85,20 +85,20 @@ const Reports = {
           <div class="no-print" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
             <div>
               <span class="topic-number">Report Module</span>
-              <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--gray-900);">${App.escapeHtml(t.title)} - Quiz Summary</h2>
-              <p style="font-size: 0.85rem; color: var(--gray-600);">
+              <h2 style="font-size: 1.35rem; font-weight: 800; color: #f0f2ff;">${App.escapeHtml(t.title)} - Quiz Summary</h2>
+              <p style="font-size: 0.85rem; color: var(--text-secondary, #94a3b8);">
                 Passing Criterion: <strong>${t.passingPercentage}%</strong> | Total Registered Students: <strong>${records.length}</strong>
               </p>
             </div>
 
             <!-- Whiteboard Sorting: Sorted by surname, Sorted by score -->
-            <div style="display: flex; align-items: center; gap: 0.75rem; background: var(--gray-100); padding: 0.5rem 0.75rem; border-radius: var(--radius-md);">
-              <span style="font-size: 0.8rem; font-weight: 700; color: var(--gray-700);">SORT BY:</span>
+            <div style="display: flex; align-items: center; gap: 0.75rem; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 0.5rem 0.75rem; border-radius: var(--radius-md, 8px);">
+              <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary, #94a3b8);">SORT BY:</span>
               <button class="btn ${this.state.topicSortBy === 'surname' ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="Reports.changeTopicSort('surname')">
-                🔤 Surname ${this.state.topicSortBy === 'surname' ? (this.state.topicSortOrder === 'asc' ? '▲' : '▼') : ''}
+                 Surname ${this.state.topicSortBy === 'surname' ? (this.state.topicSortOrder === 'asc' ? '▲' : '▼') : ''}
               </button>
               <button class="btn ${this.state.topicSortBy === 'score' ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="Reports.changeTopicSort('score')">
-                🏆 Score ${this.state.topicSortBy === 'score' ? (this.state.topicSortOrder === 'desc' ? '▼' : '▲') : ''}
+                 Score ${this.state.topicSortBy === 'score' ? (this.state.topicSortOrder === 'desc' ? '▼' : '▲') : ''}
               </button>
             </div>
           </div>
@@ -176,9 +176,9 @@ const Reports = {
         topics.forEach(t => {
           const sc = stu.topicScores[t.id];
           if (!sc || sc.notTaken) {
-            topicCellsHtml += `<td style="color: var(--gray-400);">—</td>`;
+            topicCellsHtml += `<td style="color: var(--text-muted, #64748b);">—</td>`;
           } else {
-            const badgeClass = sc.passed ? 'color: #166534; font-weight: 700;' : 'color: #991b1b; font-weight: 700;';
+            const badgeClass = sc.passed ? 'color: #34d399; font-weight: 700;' : 'color: #f87171; font-weight: 700;';
             topicCellsHtml += `
               <td style="${badgeClass}">
                 ${sc.score}/${sc.total} (${sc.percentage}%)<br><small>${sc.attempts} attempt${sc.attempts === 1 ? '' : 's'}</small>
@@ -187,7 +187,7 @@ const Reports = {
           }
         });
 
-        const statusClass = stu.overallStatus === 'PASSED' ? 'completed' : (stu.overallStatus === 'IN PROGRESS' ? 'in-progress' : 'failed');
+        const statusClass = stu.overallStatus === 'PASSED' ? 'completed' : (stu.overallStatus === 'IN PROGRESS' ? 'in-progress' : (stu.overallStatus === 'NOT STARTED' ? 'not-started' : 'failed'));
 
         studentRowsHtml += `
           <tr>
@@ -213,32 +213,40 @@ const Reports = {
           <p><small>Official Record Generated on: ${new Date().toLocaleString()}</small></p>
         </div>
 
-        <div class="no-print" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-          <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅️ Back to Table of Contents</button>
+        <div class="report-toolbar no-print">
+          <div><span class="report-eyebrow">ACADEMIC RECORDS</span><h1>Gradebook</h1><p>Student progress and assessment results across the course.</p></div>
+          <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅ Back to Table of Contents</button>
 
           <!-- Whiteboard Requirement #8: Print, PDF, Spreadsheet -->
-          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+          <div class="report-actions">
+            <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">Back to dashboard</button>
             <button class="btn btn-primary btn-sm" onclick="Reports.printReport()">
-              🖨️ Print
+               Print
             </button>
             <button class="btn btn-outline btn-sm" onclick="Reports.exportPdf()">
-              📄 PDF
+               PDF
             </button>
             <button type="button" onclick="Reports.downloadCsv('/api/reports/all?format=csv', 'master-gradebook.csv')" class="btn btn-success btn-sm">
-              📊 Spreadsheet (CSV)
+               Spreadsheet (CSV)
             </button>
           </div>
         </div>
 
-        <div class="card">
-          <div class="no-print" style="border-bottom: 1px solid var(--gray-200); padding-bottom: 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <section class="report-stat-grid no-print" aria-label="Gradebook summary">
+          <article class="report-stat-card"><span>Enrolled students</span><strong>${students.length}</strong><small>Registered learner accounts</small></article>
+          <article class="report-stat-card"><span>Course modules</span><strong>${topics.length}</strong><small>Published learning topics</small></article>
+          <article class="report-stat-card"><span>Passing standard</span><strong>${res.passingPercentage || 50}%</strong><small>Required per module</small></article>
+        </section>
+
+        <div class="card gradebook-card">
+          <div class="no-print" style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
             <div>
               <span class="topic-number">Institutional Class Record</span>
-              <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--gray-900);">
+              <h2 style="font-size: 1.4rem; font-weight: 800; color: #f0f2ff;">
                 Master Summary of ALL Quiz Scores per Student
               </h2>
-              <p style="font-size: 0.85rem; color: var(--gray-600);">
-                Consolidated matrix across all modules (1 to ${topics.length}). Alphabetically arranged by student surname.
+              <p style="font-size: 0.85rem; color: var(--text-secondary, #94a3b8);">
+                All enrolled students, listed alphabetically by surname.
               </p>
             </div>
           </div>
@@ -257,9 +265,7 @@ const Reports = {
                   <th>Standing</th>
                 </tr>
               </thead>
-              <tbody>
-                ${studentRowsHtml}
-              </tbody>
+              <tbody>${students.length ? studentRowsHtml : `<tr><td class="gradebook-empty" colspan="${7 + topics.length}"><strong>No students enrolled yet</strong><span>Student accounts will appear here automatically after registration.</span></td></tr>`}</tbody>
             </table>
           </div>
 

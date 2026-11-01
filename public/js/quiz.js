@@ -34,7 +34,8 @@ const Quiz = {
         return;
       }
 
-      this.state.timerSecondsLeft = (this.state.settings.timeLimitMinutes || 10) * 60;
+      const timeLimitMinutes = Math.max(1, Math.min(180, Number(this.state.settings.timeLimitMinutes) || 10));
+      this.state.timerSecondsLeft = timeLimitMinutes * 60;
       this.renderQuizUI();
       this.startTimer();
     } catch (err) {
@@ -53,7 +54,7 @@ const Quiz = {
       this.updateTimerDisplay();
       if (this.state.timerSecondsLeft <= 0) {
         clearInterval(this.state.timerInterval);
-        App.toast('⏳ Time is up! Auto-submitting your quiz...', 'warning');
+        App.toast('Time is up. Your quiz is being submitted...', 'warning');
         this.submitQuiz(true);
       }
     }, 1000);
@@ -91,13 +92,13 @@ const Quiz = {
           <div style="font-size:0.7rem;font-weight:700;color:#06b6d4;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Active Assessment</div>
           <h2 style="font-size:1.2rem;font-weight:800;color:#f0f2ff;letter-spacing:-0.02em">${App.escapeHtml(this.state.topicTitle)}</h2>
           <div style="font-size:0.8rem;color:rgba(165,180,252,0.6);display:flex;gap:1rem;margin-top:0.25rem;flex-wrap:wrap">
-            <span>📋 <strong style="color:#a5b4fc">${qCount}</strong> items</span>
-            <span>🎯 Pass: <strong style="color:#a5b4fc">${this.state.settings.passingPercentage}%</strong> (${passScore}/${qCount} correct)</span>
+            <span> <strong style="color:#a5b4fc">${qCount}</strong> items</span>
+            <span> Pass: <strong style="color:#a5b4fc">${this.state.settings.passingPercentage}%</strong> (${passScore}/${qCount} correct)</span>
           </div>
         </div>
         <div id="quiz-timer-box" class="quiz-timer-box normal">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span id="quiz-timer">10:00</span>
+          <span id="quiz-timer">${String(Math.floor(this.state.timerSecondsLeft / 60)).padStart(2, '0')}:${String(this.state.timerSecondsLeft % 60).padStart(2, '0')}</span>
         </div>
       </div>
 
@@ -226,26 +227,26 @@ const Quiz = {
 
     const bannerHtml = isPassed ? `
       <div style="background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.1));border:1px solid rgba(16,185,129,0.35);border-radius:16px;padding:1.75rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:1.25rem">
-        <div style="width:56px;height:56px;border-radius:14px;background:rgba(16,185,129,0.2);border:1px solid rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0">🎉</div>
+        <div style="width:56px;height:56px;border-radius:14px;background:rgba(16,185,129,0.2);border:1px solid rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;color:#34d399;flex-shrink:0"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg></div>
         <div>
           <h3 style="font-size:1.3rem;font-weight:900;color:#34d399;margin-bottom:0.35rem;letter-spacing:-0.02em">PASSED! Excellent Work!</h3>
           <p style="color:rgba(52,211,153,0.75);font-size:0.9rem">
             You scored <strong style="color:#34d399">${result.percentage}%</strong> (${result.score}/${result.totalQuestions} correct). 
             Passing mark: ${result.passingThreshold}%.
-            ${result.nextTopicTitle ? `<strong style="color:#34d399"> "${result.nextTopicTitle}" is now unlocked! 🔓</strong>` : ' You completed this module!'}
+            ${result.nextTopicTitle ? `<strong style="color:#34d399"> "${result.nextTopicTitle}" is now unlocked! </strong>` : ' You completed this module!'}
           </p>
         </div>
       </div>
     ` : `
       <div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(239,68,68,0.06));border:1px solid rgba(239,68,68,0.35);border-radius:16px;padding:1.75rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:1.25rem">
-        <div style="width:56px;height:56px;border-radius:14px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0">⚠️</div>
+        <div style="width:56px;height:56px;border-radius:14px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);display:flex;align-items:center;justify-content:center;color:#f87171;flex-shrink:0"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7l10 10M17 7 7 17"/></svg></div>
         <div>
           <h3 style="font-size:1.3rem;font-weight:900;color:#f87171;margin-bottom:0.35rem;letter-spacing:-0.02em">Quiz Not Passed — Review Required</h3>
           <p style="color:rgba(248,113,113,0.75);font-size:0.9rem">
             You scored <strong style="color:#f87171">${result.percentage}%</strong> (${result.score}/${result.totalQuestions}). 
             Passing mark is <strong style="color:#f87171">${result.passingThreshold}%</strong>.
           </p>
-          <p style="font-size:0.82rem;margin-top:0.35rem;color:rgba(248,113,113,0.6)">⛔ You cannot proceed to the next module. Please review and retake until you meet ${this.state.settings.passingPercentage}%.</p>
+          <p style="font-size:0.82rem;margin-top:0.35rem;color:rgba(248,113,113,0.6)"> You cannot proceed to the next module. Please review and retake until you meet ${this.state.settings.passingPercentage}%.</p>
         </div>
       </div>
     `;
@@ -268,10 +269,10 @@ const Quiz = {
                 Continue to All Modules
               </button>
             ` : `
-              <button class="btn btn-danger" onclick="App.navigate('topic-detail','${this.state.topicId}')">🔄 Review Materials</button>
-              <button class="btn btn-primary" onclick="Quiz.start('${this.state.topicId}')">🎯 Retake Quiz</button>
+              <button class="btn btn-danger" onclick="App.navigate('topic-detail','${this.state.topicId}')"> Review Materials</button>
+              <button class="btn btn-primary" onclick="Quiz.start('${this.state.topicId}')"> Retake Quiz</button>
             `}
-            <button class="btn btn-secondary" onclick="App.navigate('topic-report','${this.state.topicId}')">📊 Topic Summary</button>
+            <button class="btn btn-secondary" onclick="App.navigate('topic-report','${this.state.topicId}')"> Topic Summary</button>
           </div>
         </div>
 

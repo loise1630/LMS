@@ -1953,6 +1953,285 @@ input[type="file"].form-control {
   .security-card-subtitle span { width: 38px; }
 }
 
+/* Faculty dashboard layout inspired by the supplied administration portal reference. */
+.faculty-sidebar { display:none; }
+body.faculty-dashboard { background: #09080b; }
+body.faculty-dashboard .faculty-sidebar { position:fixed; z-index:60; inset:0 auto 0 0; width:252px; display:flex; flex-direction:column; padding:32px 27px 24px; border-right:1px solid rgba(224,167,163,.2); background:linear-gradient(150deg,#171216,#0d0b0f 65%,#171014); }
+.faculty-sidebar-brand { display:flex; flex-direction:column; align-items:center; gap:18px; padding:38px 0 60px; color:#eee8eb; text-align:center; font-size:.77rem; line-height:1.55; letter-spacing:.07em; }
+.faculty-brand-mark { display:grid; place-items:center; width:74px;height:82px; color:#f4c0b9; font-size:42px; border:3px solid #d9908c; clip-path:polygon(50% 0,96% 20%,91% 68%,50% 100%,9% 68%,4% 20%); }
+.faculty-sidebar nav { display:grid; gap:14px; }
+.faculty-sidebar nav button { display:flex; align-items:center; gap:20px; width:100%; min-height:56px; padding:0 16px; border:1px solid transparent; border-radius:12px; color:#aaa1aa; background:transparent; text-align:left; cursor:pointer; font:500 .88rem Inter,sans-serif; }
+.faculty-sidebar nav button span { width:24px; font-size:1.3rem; text-align:center; color:#e8dfe5; }
+.faculty-sidebar nav button.active,.faculty-sidebar nav button:hover { color:#fff; border-color:rgba(221,139,139,.25); background:linear-gradient(110deg,rgba(192,101,103,.76),rgba(90,48,57,.48)); }
+.faculty-sidebar > small { display:flex; align-items:center; gap:18px; margin-top:auto; color:#8e858e; text-align:center; }
+.faculty-sidebar > small:before,.faculty-sidebar > small:after { content:''; height:1px; flex:1; background:rgba(224,167,163,.24); }
+body.faculty-dashboard .top-nav { margin-left:252px; padding:0 42px; background:rgba(10,8,11,.94); }
+body.faculty-dashboard .nav-container { max-width:none; }
+body.faculty-dashboard .brand-section { display:none; }
+body.faculty-dashboard .nav-actions { margin-left:auto; }
+body.faculty-dashboard .user-pill { border:0; background:transparent; }
+body.faculty-dashboard .main-wrapper { width:auto; max-width:none; margin-left:252px; padding:0 5.2%; }
+body.faculty-dashboard #subject-banner-area { display:none; }
+body.faculty-dashboard .faculty-welcome { display:flex; align-items:flex-end; justify-content:space-between; gap:30px; min-height:250px; padding:58px 0 42px; }
+body.faculty-dashboard .faculty-welcome > div:first-child > span { color:#9c909d; font-size:1.35rem; font-weight:650; }
+body.faculty-dashboard .faculty-welcome h1 { margin:2px 0 12px; color:#f4f0f4; font-size:3.15rem; line-height:1.1; letter-spacing:-.04em; }
+body.faculty-dashboard .faculty-welcome i { display:block; width:64px; height:2px; background:#d58b8b; }
+body.faculty-dashboard .faculty-quick-actions { display:flex; gap:14px; padding-bottom:2px; }
+body.faculty-dashboard .faculty-quick-actions .btn { display:flex; align-items:center; justify-content:center; gap:14px; width:220px; min-height:60px; border-radius:17px; font-size:.91rem; }
+body.faculty-dashboard .faculty-quick-actions .btn span { font-size:1.35rem; }
+body.faculty-dashboard .faculty-quick-actions .btn-secondary { border-color:rgba(210,166,173,.35); background:rgba(10,9,12,.5); }
+body.faculty-dashboard #main-content > .card { padding:0; border:0; background:transparent; box-shadow:none; }
+body.faculty-dashboard #main-content > .card > div:first-child { margin-bottom:1.3rem !important; }
+body.faculty-dashboard .module-section-title { font-size:1.45rem; }
+body.faculty-dashboard .module-section-description,body.faculty-dashboard .module-heading-accent,body.faculty-dashboard #main-content > .card > div:first-child .topic-status-badge { display:none; }
+body.faculty-dashboard .toc-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+body.faculty-dashboard .topic-card { min-height:130px; }
+@media(max-width:1050px) { body.faculty-dashboard .faculty-welcome { align-items:flex-start; flex-direction:column; padding:40px 0 28px; } body.faculty-dashboard .faculty-quick-actions { width:100%; } body.faculty-dashboard .faculty-quick-actions .btn { flex:1; width:auto; } }
+@media(max-width:760px) { body.faculty-dashboard .faculty-sidebar { width:72px; padding:16px 8px; } .faculty-sidebar-brand { padding:18px 0 26px; } .faculty-sidebar-brand strong,.faculty-sidebar nav button:not(.active) { font-size:0; } .faculty-sidebar nav button { justify-content:center; padding:0; } .faculty-sidebar nav button span { font-size:1.2rem; } .faculty-sidebar > small { font-size:0; } body.faculty-dashboard .top-nav { margin-left:72px; padding:0 12px; } body.faculty-dashboard .main-wrapper { margin-left:72px; padding:0 18px; } body.faculty-dashboard .faculty-welcome h1 { font-size:2.2rem; } body.faculty-dashboard .faculty-quick-actions { flex-direction:column; } body.faculty-dashboard .toc-grid { grid-template-columns:1fr; } }
+
+/* Final presentation polish: clearer hierarchy, consistent motion, and readable tables. */
+body.faculty-dashboard .faculty-sidebar nav button { transition:background .2s ease,border-color .2s ease,color .2s ease,transform .2s ease; }
+body.faculty-dashboard .faculty-sidebar nav button:hover { transform:translateX(2px); }
+body.faculty-dashboard .faculty-sidebar-brand { position:relative; }
+body.faculty-dashboard .faculty-sidebar-brand:after { content:''; width:62px; height:1px; position:absolute; bottom:32px; background:linear-gradient(90deg,transparent,rgba(224,167,163,.4),transparent); }
+body.faculty-dashboard #main-content > .card { overflow:visible; }
+body.faculty-dashboard #main-content > .card > div:first-child { position:relative; padding-bottom:14px; border-bottom:1px solid rgba(224,167,163,.2); }
+body.faculty-dashboard .topic-card { display:flex; flex-direction:column; padding:20px 22px; border-color:rgba(222,172,175,.13); background:linear-gradient(145deg,rgba(29,23,29,.92),rgba(15,14,18,.96)); }
+body.faculty-dashboard .topic-card:hover { border-color:rgba(220,145,145,.4); box-shadow:0 18px 40px rgba(0,0,0,.32),0 0 24px rgba(190,104,108,.08); }
+body.faculty-dashboard .topic-title { color:#f3edf1; line-height:1.35; }
+body.faculty-dashboard .topic-card-body { flex:1; color:rgba(218,205,215,.68); }
+body.faculty-dashboard .topic-card-footer { display:flex; flex-wrap:wrap; gap:8px; padding-top:15px; border-top:1px solid rgba(255,255,255,.055); }
+body.faculty-dashboard .topic-card-footer .btn { min-height:36px; }
+body.faculty-dashboard .user-pill { gap:12px; color:#f1e9ef; }
+body.faculty-dashboard .user-pill code { color:#c9b7c4 !important; background:rgba(255,255,255,.055) !important; }
+body.faculty-dashboard .nav-actions > .btn { border-radius:10px; }
+body.faculty-dashboard .faculty-quick-actions .btn { transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease; }
+body.faculty-dashboard .faculty-quick-actions .btn:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(0,0,0,.24); }
+body.portal-view:not(.faculty-dashboard) .topic-card { transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease; }
+body.portal-view:not(.faculty-dashboard) .card { border-color:rgba(218,179,155,.14); }
+body.portal-view .data-table { border-collapse:separate; border-spacing:0; }
+body.portal-view .data-table th { position:sticky; top:0; z-index:1; padding:14px 13px; font-size:.72rem; letter-spacing:.045em; text-transform:uppercase; }
+body.portal-view .data-table td { padding:13px; vertical-align:middle; }
+body.portal-view .table-responsive { border:1px solid rgba(218,179,155,.13); border-radius:12px; }
+body.portal-view .data-table tbody tr:nth-child(even) td { background:rgba(255,255,255,.018); }
+.btn { transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease; }
+.btn:not(:disabled):active { transform:translateY(1px) scale(.99); }
+@media(max-width:760px) {
+  body.faculty-dashboard .faculty-sidebar nav button { font-size:0; }
+  body.faculty-dashboard .faculty-sidebar-brand { padding:18px 0 26px; }
+  body.faculty-dashboard .faculty-sidebar-brand:after { bottom:12px; }
+  body.faculty-dashboard .faculty-welcome { min-height:0; padding-top:32px; }
+  body.faculty-dashboard .faculty-quick-actions { display:grid; grid-template-columns:1fr; }
+  body.faculty-dashboard .faculty-quick-actions .btn { width:100%; }
+  body.faculty-dashboard .topic-card { padding:17px; }
+  body.faculty-dashboard .user-pill code,body.faculty-dashboard .user-pill .role-badge { display:none; }
+  body.portal-view .data-table { min-width:720px; }
+}
+@media(prefers-reduced-motion:reduce) { .btn,body.faculty-dashboard .faculty-sidebar nav button,body.faculty-dashboard .faculty-quick-actions .btn { transition:none !important; } }
+
+/* Topic learning view: lead with real uploaded content presented as slides. */
+body.portal-view .tabs > .tab-btn[onclick*="setTopicTab('lesson')"],
+body.portal-view .tabs > .tab-btn[onclick*="setTopicTab('summary')"] { display:none; }
+body.portal-view .slide-content { max-width:850px; margin:0 auto; }
+body.portal-view .slide-content h3 { margin-bottom:1.25rem; font-size:clamp(1.35rem,2.3vw,2rem); }
+body.portal-view .slide-content pre { white-space:pre-wrap; overflow-wrap:anywhere; color:#e5e2e5; font:400 1rem/1.85 Inter,sans-serif; }
+body.portal-view .slide-deck { min-height:380px; padding:clamp(1.5rem,4vw,3rem); background:linear-gradient(145deg,#18191e,#111216); border-color:rgba(255,255,255,.09); box-shadow:0 18px 48px rgba(0,0,0,.2); }
+body.portal-view #main-content h3 > span:empty,
+body.portal-view #main-content div[style*="font-size:3rem"]:empty,
+body.portal-view #main-content div[style*="font-size:2.5rem"]:empty,
+body.portal-view #main-content div[style*="width:70px;height:70px"]:empty { display:none !important; }
+.study-tips-panel { padding:clamp(20px,3vw,32px); border:1px solid rgba(255,255,255,.08); border-radius:14px; background:linear-gradient(150deg,#17181d,#121316); }
+.study-tips-intro { margin-bottom:22px; }
+.study-tips-intro > span { color:#c48d7c; font-size:.66rem; font-weight:750; letter-spacing:.13em; }
+.study-tips-intro h3 { margin-top:5px; color:#f1edf0; font-size:1.45rem; letter-spacing:-.025em; }
+.study-tips-intro p { margin-top:5px; color:#96919a; font-size:.86rem; }
+.study-tips-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.study-tip-card { display:flex; gap:14px; min-height:126px; padding:18px; border:1px solid rgba(255,255,255,.07); border-radius:10px; background:rgba(255,255,255,.018); }
+.study-tip-number { flex:0 0 34px; color:#d5a092; font-size:.73rem; font-weight:750; letter-spacing:.05em; }
+.study-tip-card h4 { color:#e9e5e9; font-size:.88rem; font-weight:650; }
+.study-tip-card p { margin-top:6px; color:#a09ba4; font-size:.78rem; line-height:1.65; }
+.study-tips-footer { display:flex; align-items:center; gap:12px; margin-top:16px; padding:15px 17px; border:1px solid rgba(196,141,124,.16); border-radius:10px; background:rgba(196,141,124,.045); }
+.study-tips-footer strong { flex:0 0 auto; color:#e4c0b4; font-size:.78rem; }
+.study-tips-footer span { flex:1; color:#aaa3aa; font-size:.76rem; line-height:1.5; }
+.study-tips-footer .btn { flex:0 0 auto; }
+@media(max-width:700px) { .study-tips-grid { grid-template-columns:1fr; } .study-tips-footer { align-items:flex-start; flex-direction:column; } }
+
+/* Faculty screens use a quiet, editorial layout with the sidebar as the sole navigation. */
+body.portal-view.faculty-dashboard { background:#0c0d10; background-image:radial-gradient(ellipse 70% 55% at 78% -10%,rgba(150,91,84,.09),transparent 66%); }
+body.faculty-dashboard::before,
+body.faculty-dashboard #micro-slats-background,
+body.faculty-dashboard #pattern-waves-background { display:none !important; }
+body.portal-view.faculty-dashboard .main-wrapper { width:calc(100% - 252px); max-width:none; margin:0 0 0 252px; padding:0 clamp(28px,4.2vw,76px) 56px; }
+body.faculty-dashboard .top-nav { height:78px; margin-left:252px; padding:0 clamp(28px,4.2vw,76px); border-bottom-color:rgba(255,255,255,.07); box-shadow:0 8px 24px rgba(0,0,0,.12); }
+body.faculty-dashboard .nav-container { max-width:none; }
+body.faculty-dashboard .nav-actions { margin:0 0 0 auto; }
+.faculty-account { display:flex; align-items:center; gap:12px; color:#f1edf0; }
+.faculty-account-avatar { display:grid; place-items:center; width:38px;height:38px; border:1px solid rgba(221,170,157,.25); border-radius:50%; color:#edc6b9; background:#241b1c; font-weight:700; }
+.faculty-account strong,.faculty-account small { display:block; }
+.faculty-account strong { font-size:.84rem; font-weight:650; }
+.faculty-account small { margin-top:2px; color:#918b94; font-size:.71rem; }
+.faculty-sidebar-brand { padding:35px 0 46px; gap:15px; }
+.faculty-sidebar-brand:after { bottom:22px; }
+.faculty-brand-mark { width:68px;height:76px; border:0; clip-path:none; color:#e8b3a7; }
+.faculty-brand-mark svg { width:100%; height:100%; overflow:visible; }
+.faculty-brand-mark svg path:first-child { stroke:currentColor; stroke-width:2.2; }
+.faculty-brand-mark svg rect { fill:currentColor; stroke:currentColor; stroke-width:2; }
+.faculty-brand-mark svg path:last-child { stroke:#211719; stroke-width:2; stroke-linecap:round; }
+.faculty-sidebar nav { gap:8px; }
+.faculty-sidebar nav button { min-height:50px; border-radius:9px; }
+.faculty-sidebar nav button.active { background:rgba(185,112,106,.15); border-color:rgba(201,135,126,.19); color:#f1d8d2; }
+.faculty-sidebar nav button.active span { color:#e5aaa0; }
+.faculty-sidebar nav button:hover { transform:none; background-color:rgba(255,255,255,.045); }
+.faculty-sidebar nav button.active:hover { background:rgba(185,112,106,.2); }
+body.faculty-dashboard .report-toolbar { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding:42px 0 24px; }
+body.faculty-dashboard .report-toolbar > .btn { display:none; }
+.report-eyebrow { display:block; margin-bottom:8px; color:#c48d7c; font-size:.68rem; font-weight:750; letter-spacing:.13em; }
+.report-toolbar h1 { color:#f2eff0; font-size:2rem; line-height:1.2; letter-spacing:-.035em; }
+.report-toolbar p { margin-top:7px; color:#96929a; font-size:.88rem; }
+.report-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:9px; }
+.report-actions .btn { min-height:39px; border-radius:8px; }
+.report-actions .btn-success { background:#276b52; border-color:#32765e; box-shadow:none; }
+.report-actions .btn-primary { box-shadow:none; }
+.report-stat-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:0 0 22px; }
+.report-stat-card { min-height:116px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; padding:18px 20px; border:1px solid rgba(255,255,255,.075); border-radius:11px; background:linear-gradient(145deg,#17171b,#131316); }
+.report-stat-card > span { color:#aaa4ac; font-size:.75rem; font-weight:550; }
+.report-stat-card strong { margin:5px 0 1px; color:#f0e9e9; font-size:1.65rem; line-height:1.2; letter-spacing:-.035em; }
+.report-stat-card small { color:#77737b; font-size:.7rem; }
+body.faculty-dashboard .gradebook-card { padding:0; overflow:hidden; border:1px solid rgba(255,255,255,.08); border-radius:12px; background:#131316; box-shadow:0 14px 42px rgba(0,0,0,.18); }
+body.faculty-dashboard .gradebook-card > .no-print { margin:0 !important; padding:21px 23px !important; border-color:rgba(255,255,255,.07) !important; }
+body.faculty-dashboard .gradebook-card .topic-number { color:#c48d7c; font-size:.66rem; letter-spacing:.1em; text-transform:uppercase; }
+body.faculty-dashboard .gradebook-card h2 { margin-top:4px; color:#eee9ed !important; font-size:1.08rem !important; font-weight:650 !important; }
+body.faculty-dashboard .gradebook-card .no-print p { margin-top:5px; color:#8d8991 !important; font-size:.78rem !important; }
+body.faculty-dashboard .gradebook-card .table-responsive { border:0; border-radius:0; }
+body.faculty-dashboard .gradebook-card .data-table { min-width:760px; }
+body.faculty-dashboard .gradebook-card .data-table th { position:static; padding:13px 15px; border-bottom:1px solid rgba(255,255,255,.075); background:#19191d; color:#aaa3ad; font-size:.65rem; letter-spacing:.075em; }
+body.faculty-dashboard .gradebook-card .data-table td { padding:13px 15px; color:#d0cbd1; font-size:.78rem; }
+body.faculty-dashboard .gradebook-card .data-table td code { color:#c4aebc; }
+body.faculty-dashboard .gradebook-card .topic-status-badge.not-started { border-color:rgba(255,255,255,.12); background:rgba(255,255,255,.045); color:#aaa5ae; }
+body.faculty-dashboard .gradebook-card .data-table tbody tr:hover td { background:rgba(255,255,255,.035); }
+body.faculty-dashboard .gradebook-card .print-signatures { display:none; }
+body.faculty-dashboard .gradebook-empty { height:150px; text-align:center; }
+body.faculty-dashboard .gradebook-empty strong,.gradebook-empty span { display:block; }
+body.faculty-dashboard .gradebook-empty strong { color:#e8e2e7; font-size:.9rem; }
+body.faculty-dashboard .gradebook-empty span { margin-top:4px; color:#8e8992; font-size:.78rem; }
+body.faculty-dashboard .faculty-welcome { min-height:245px; padding-top:52px; }
+body.faculty-dashboard .faculty-welcome > div:first-child > span { color:#9b969e; font-size:1.05rem; font-weight:550; }
+body.faculty-dashboard .faculty-welcome h1 { margin:5px 0 13px; font-size:2.7rem; font-weight:650; }
+body.faculty-dashboard .faculty-quick-actions .btn { width:auto; min-width:175px; min-height:49px; border-radius:9px; font-size:.8rem; }
+body.faculty-dashboard .faculty-quick-actions .btn-primary { background:#a65f56; box-shadow:none; }
+body.faculty-dashboard .faculty-quick-actions .btn-secondary { border-color:rgba(255,255,255,.13); background:#17171b; }
+body.faculty-dashboard .faculty-quick-actions .btn:hover { transform:translateY(-1px); }
+@media(max-width:1000px) {
+  body.faculty-dashboard .report-toolbar { align-items:flex-start; flex-direction:column; }
+  .report-actions { justify-content:flex-start; }
+  body.faculty-dashboard .faculty-welcome { align-items:flex-start; flex-direction:column; justify-content:center; gap:22px; padding:38px 0; }
+}
+@media(max-width:760px) {
+  body.portal-view.faculty-dashboard .main-wrapper { width:calc(100% - 72px); margin-left:72px; padding:0 18px 35px; }
+  body.faculty-dashboard .top-nav { margin-left:72px; padding:0 18px; }
+  .faculty-account { gap:8px; }
+  .faculty-account strong { font-size:.75rem; }
+  .faculty-account small { font-size:.65rem; }
+  .faculty-account-avatar { width:33px;height:33px; }
+  body.faculty-dashboard .report-toolbar { padding:28px 0 20px; }
+  .report-toolbar h1 { font-size:1.65rem; }
+  .report-actions { width:100%; }
+  .report-actions .btn { flex:1; }
+  .report-stat-grid { grid-template-columns:1fr; gap:9px; }
+  .report-stat-card { min-height:88px; padding:14px 16px; }
+  body.faculty-dashboard .faculty-quick-actions { display:flex; flex-wrap:wrap; }
+  body.faculty-dashboard .faculty-quick-actions .btn { flex:1 1 145px; }
+}
+
+/* Unified button system: restrained warm neutrals with clear action priority. */
+.btn,
+body.portal-view .btn,
+.landing-page-root .btn {
+  min-height:42px;
+  padding:.62rem 1rem;
+  border:1px solid transparent;
+  border-radius:9px;
+  box-shadow:none;
+  font-size:.82rem;
+  font-weight:650;
+  letter-spacing:0;
+  transition:background-color .16s ease,border-color .16s ease,color .16s ease,transform .16s ease,box-shadow .16s ease;
+}
+.btn::before { display:none; }
+.btn svg { width:16px; height:16px; flex:0 0 auto; }
+.btn:not(:disabled):hover { transform:translateY(-1px); }
+.btn:not(:disabled):active { transform:translateY(0); }
+.btn-primary,
+body.portal-view .btn-primary,
+.landing-page-root .btn-primary {
+  color:#fff8f5;
+  background:#a65f56;
+  border-color:#a65f56;
+  box-shadow:0 2px 8px rgba(166,95,86,.15);
+}
+.btn-primary:hover,
+body.portal-view .btn-primary:hover,
+.landing-page-root .btn-primary:hover { color:#fff; background:#b36e64; border-color:#b36e64; box-shadow:0 5px 14px rgba(166,95,86,.2); }
+.btn-accent,
+body.portal-view .btn-accent {
+  color:#221b18;
+  background:#c99a6e;
+  border-color:#c99a6e;
+  box-shadow:none;
+}
+.btn-accent:hover,
+body.portal-view .btn-accent:hover { color:#171311; background:#d6aa80; border-color:#d6aa80; box-shadow:0 4px 12px rgba(201,154,110,.16); }
+.btn-secondary,
+body.portal-view .btn-secondary {
+  color:#ddd6db;
+  background:#1a191d;
+  border-color:#38343b;
+  backdrop-filter:none;
+}
+.btn-secondary:hover,
+body.portal-view .btn-secondary:hover { color:#f5eff2; background:#242126; border-color:#62504f; }
+.btn-outline,
+body.portal-view .btn-outline {
+  color:#d1a08f;
+  background:transparent;
+  border-color:#76564f;
+}
+.btn-outline:hover,
+body.portal-view .btn-outline:hover { color:#f1d4c9; background:rgba(166,95,86,.1); border-color:#a67568; }
+.btn-ghost,
+body.portal-view .btn-ghost { color:#aaa2aa; background:transparent; border-color:transparent; }
+.btn-ghost:hover,
+body.portal-view .btn-ghost:hover { color:#eadfdf; background:rgba(255,255,255,.055); border-color:rgba(255,255,255,.06); }
+.btn-success,
+body.portal-view .btn-success,
+.report-actions .btn-success { color:#e4f2e9; background:#315d49; border-color:#426f5a; box-shadow:none; }
+.btn-success:hover,
+body.portal-view .btn-success:hover,
+.report-actions .btn-success:hover { color:#f1fff5; background:#3b6d54; border-color:#548267; box-shadow:none; }
+.btn-danger,
+body.portal-view .btn-danger { color:#f6e8e7; background:#743f40; border-color:#8a4c4b; box-shadow:none; }
+.btn-danger:hover,
+body.portal-view .btn-danger:hover { color:#fff4f2; background:#884a49; border-color:#a35b59; box-shadow:0 3px 10px rgba(136,74,73,.18); }
+.btn-sm,
+body.portal-view .btn-sm { min-height:35px; padding:.42rem .78rem; border-radius:8px; font-size:.75rem; }
+.btn-lg,
+body.portal-view .btn-lg { min-height:48px; padding:.75rem 1.2rem; border-radius:10px; font-size:.9rem; }
+.btn:disabled,.btn[disabled] { color:#77727a !important; background:#1a191c !important; border-color:#2c292e !important; box-shadow:none !important; transform:none !important; cursor:not-allowed; opacity:.62; }
+.btn:focus-visible,.tab-btn:focus-visible { outline:2px solid rgba(201,154,110,.78); outline-offset:3px; }
+body.portal-view .tab-btn.active { color:#fff6f2; background:#7f4d47; box-shadow:inset 0 0 0 1px rgba(221,164,146,.19); }
+body.portal-view .tab-btn:not(.active) { color:#aaa3ac; }
+body.portal-view .tab-btn:not(.active):hover { color:#eee4e8; background:rgba(255,255,255,.045); }
+body.faculty-dashboard .faculty-quick-actions .btn { min-height:46px; border-radius:9px; font-size:.8rem; }
+body.faculty-dashboard .faculty-quick-actions .btn-primary { color:#fff8f5; background:#a65f56; border-color:#a65f56; }
+body.faculty-dashboard .faculty-quick-actions .btn-secondary { color:#ddd6db; background:#1a191d; border-color:#38343b; }
+body.faculty-dashboard .report-actions .btn { min-height:39px; border-radius:8px; }
+.study-tips-footer .btn { white-space:nowrap; }
+.faculty-sidebar nav button { transition:background-color .16s ease,border-color .16s ease,color .16s ease; }
+.faculty-sidebar nav button:not(.active):hover { color:#eee7eb; background:rgba(255,255,255,.045); border-color:rgba(255,255,255,.055); }
+.landing-page-root .btn-primary { background:#a65f56; border-color:#a65f56; }
+.landing-page-root .btn-primary:hover { background:#b36e64; border-color:#b36e64; }
+@media(prefers-reduced-motion:reduce) { .btn,.faculty-sidebar nav button { transition:none !important; } }
+
 
 /* ============================================================
    OCR & QUIZ GENERATOR UI
@@ -2379,3 +2658,11 @@ body.portal-view .empty-curriculum-secondary { margin-left: .4rem !important; bo
   body.portal-view .empty-curriculum-primary,
   body.portal-view .empty-curriculum-secondary { width: 100%; margin: .35rem 0 0 !important; }
 }
+
+/* Keep portal actions on the same warm palette after legacy theme overrides. */
+body.portal-view .btn-primary,
+body.faculty-dashboard .faculty-quick-actions .btn-primary { color:#fff8f5; background:#a65f56; border:1px solid #a65f56; box-shadow:none; }
+body.portal-view .btn-primary:hover,
+body.faculty-dashboard .faculty-quick-actions .btn-primary:hover { color:#fff; background:#b36e64; border-color:#b36e64; box-shadow:0 5px 14px rgba(166,95,86,.2); }
+body.portal-view .btn-accent { color:#221b18; background:#c99a6e; border-color:#c99a6e; box-shadow:none; }
+body.portal-view .btn-accent:hover { color:#171311; background:#d6aa80; border-color:#d6aa80; box-shadow:0 4px 12px rgba(201,154,110,.16); }

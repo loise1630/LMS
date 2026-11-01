@@ -7,66 +7,151 @@
   },
   "users": [
     {
-      "id": "usr_fac_1",
-      "idNumber": "TUPT-FAC-001",
-      "password": "faculty123",
-      "role": "faculty",
-      "firstName": "Maria Teresa",
-      "lastName": "Santos",
-      "privacyAgreed": true,
-      "privacyAgreedAt": "2026-08-15T08:00:00.000Z"
-    },
-    {
       "id": "usr_stu_1",
       "idNumber": "TUPT-23-1096",
-      "password": "Garcia",
-      "role": "student",
+      "password": "scrypt$16384$cb2e2305ca7a24ed82c21bd15a54ebc8$1ebe553b5697bced1f182966b7680e18bc3888e303934971c8d164f6ca4ed60181f2cc20422141e118f2c712862cd34abfd3af02e739027d4ee3873c22363633",
+      "role": "faculty",
       "firstName": "Gerald Loise",
       "lastName": "Garcia",
       "privacyAgreed": true,
       "privacyAgreedAt": "2026-08-20T09:15:00.000Z"
     },
     {
-      "id": "usr_stu_2",
-      "idNumber": "TUPT-23-1097",
-      "password": "student123",
+      "id": "usr_1793510157848_892",
+      "idNumber": "TUPT-00-00",
+      "password": "scrypt$16384$44d05de89eb8069e5b02d5b41b8e9e77$3b64129f9c27183b9f2886f3d644df25e3abd7a5095ec754d1fb635e24cae66906d77421c73e59602a9e095d1ba525239354fd22c9d3aa35371a8657d48e0732",
       "role": "student",
-      "firstName": "Maria Carmela",
-      "lastName": "Alvarez",
+      "firstName": "Rene",
+      "lastName": "Baterbonia",
       "privacyAgreed": true,
-      "privacyAgreedAt": "2026-08-20T09:20:00.000Z"
-    },
-    {
-      "id": "usr_stu_3",
-      "idNumber": "TUPT-23-1098",
-      "password": "student123",
-      "role": "student",
-      "firstName": "Carlo",
-      "lastName": "Reyes",
-      "privacyAgreed": true,
-      "privacyAgreedAt": "2026-08-20T09:30:00.000Z"
-    },
-    {
-      "id": "usr_stu_4",
-      "idNumber": "TUPT-23-1099",
-      "password": "student123",
-      "role": "student",
-      "firstName": "Kimberly",
-      "lastName": "Tan",
-      "privacyAgreed": true,
-      "privacyAgreedAt": "2026-08-20T10:05:00.000Z"
-    },
-    {
-      "id": "usr_stu_5",
-      "idNumber": "TUPT-23-1100",
-      "password": "student123",
-      "role": "student",
-      "firstName": "Mark Anthony",
-      "lastName": "Bautista",
-      "privacyAgreed": true,
-      "privacyAgreedAt": "2026-08-20T10:15:00.000Z"
+      "privacyAgreedAt": "2026-11-01T05:15:57.913Z",
+      "registeredAt": "2026-11-01T05:15:57.913Z"
     }
   ],
-  "topics": [],
-  "submissions": []
+  "topics": [
+    {
+      "id": "top_1793510281030",
+      "order": 1,
+      "title": "test",
+      "lessonText": "<p>[Page 1] Output-Based Education (OBE) Outcome<br/>[Page 1] Initial Group Brainstorming and Proposed Project Plan<br/>[Page 1] Course and Section: ____________________<br/>[Page 1] Group Number: ____________________<br/>[Page 1] Date: October 16, 2026<br/>[Page 1] Group Members<br/>[Page 1] 1. Gjia<br/>[Page 1] 2. Angel<br/>[Page 1] 3. Jeff<br/>[Page 1] 4. Dinesse<br/>[Page 1] I. Group Topic Brainstorming<br/>[Page 1] During our brainstorming, each of us suggested a social issue that we believe is relevant to the<br/>[Page 1] Philippines today and can be connected to the life or writings of Dr. José Rizal. We also<br/>[Page 1] considered whether we could make a simple and practical social action project about each topic.<br/>[Page 1] 1. Gjia<br/>[Page 1] Proposed Topic: \"The Price of Being Poor\": How Small Financial Barriers Create Bigger<br/>[Page 1] Inequality<br/>[Page 1] • Even small expenses for transportation, documents, school requirements, or basic services can<br/>[Page 1] be difficult for families with limited income.<br/>[Page 1] • In El Filibusterismo, Cabesang Tales experiences land-related injustice and financial<br/>[Page 1] hardship. His story shows how unfair systems can make life harder for ordinary people.<br/>[Page 1] • We think this topic is important because small costs can add up and prevent people from<br/>[Page 1] accessing opportunities.<br/>[Page 1] • A possible project would be to prepare easy-to-follow guides about available school<br/>[Page 1] assistance or public services and their requirements.<br/>[Page 1] 2. Angel<br/>[Page 1] Proposed Topic: \"From Friars to Influencers\": Blind Obedience to Powerful Personalities<br/>[Page 1] • Some people easily trust statements from influencers, celebrities, or powerful figures without<br/>[Page 1] checking the information.<br/>[Page 1] • In Noli Me Tangere, Padre Damaso and Padre Salvi show how powerful people can influence<br/>[Page 1] the beliefs and decisions of others.<br/>[Page 1] • We think students should learn to question claims respectfully and look for evidence instead<br/>[Page 1] of believing something only because a popular person said it.<br/>[Page 1] • A possible project would be a discussion and simple activity about checking claims made by<br/>[Page 1] influential people.<br/>[Page 2] 3. Jeff<br/>[Page 2] Proposed Topic: \"Viral ang Isyu, Tahimik ang Aksyon\": Performative Activism<br/>[Page 2] • We often see social issues go viral. People may share posts or react online, but we want to<br/>[Page 2] know whether online awareness also leads to real involvement.<br/>[Page 2] • In Noli Me Tangere, Ibarra tries to help his community by establishing a school. In El<br/>[Page 2] Filibusterismo, Isagani and other students work together to push for educational reform.<br/>[Page 2] • Rizal also taught students and helped his community while living in Dapitan. These examples<br/>[Page 2] remind us that concern for others can lead to practical action.<br/>[Page 2] • A possible project would be to encourage students to join one simple volunteer activity, using<br/>[Page 2] social media to invite and organize participants.<br/>[Page 2] 4. Dinesse<br/>[Page 2] Proposed Topic: \"Guilty Before Proven Innocent\": Trial by Social Media<br/>[Page 2] • People can be judged or criticized online before the full story or evidence is known.<br/>[Page 2] • In Noli Me Tangere, Ibarra is linked to an uprising and suffers from accusations. In El<br/>[Page 2] Filibusterismo, students face suspicion after the pasquinades incident.<br/>[Page 2] • This is relevant today because online accusations can damage reputations, even before the<br/>[Page 2] facts are checked.<br/>[Page 2] • A possible project would be a student workshop about fair judgment, responsible posting, and<br/>[Page 2] checking facts.<br/>[Page 2] II. Our Chosen Topic<br/>[Page 2] Selected Topic: \"Viral ang Isyu, Tahimik ang Aksyon\": Performative Activism (Jeff's<br/>[Page 2] suggestion)<br/>[Page 2] After discussing our four choices, we decided to choose Jeff's topic on performative activism. We<br/>[Page 2] chose it because we can relate to it as students who use social media almost every day. We often<br/>[Page 2] see people, including ourselves, sharing or reacting to posts about social issues. We want to find<br/>[Page 2] out how this awareness can encourage us to do something helpful in our community.<br/>[Page 2] We do not believe that sharing posts is always a bad thing. Online advocacy can spread<br/>[Page 2] information, encourage donations, and invite volunteers. We also understand that not everyone has<br/>[Page 2] the time or money to join activities. Our focus is not to judge people, but to help students find<br/>[Page 2] realistic ways to take part.<br/>[Page 2] We see a connection to Rizal's works because Ibarra tried to build a school and the students in El<br/>[Page 2] Filibusterismo worked together for reform. Rizal's service in Dapitan also shows how we can help<br/>[Page 2] others through simple, useful actions. This topic fits our project because we can survey students,<br/>[Page 2] organize a small volunteer activity, and evaluate what we learned.<br/>[Page 2] Proposed Project Title: From Posts to Purpose: Turning Online Awareness into Real Community<br/>[Page 2] Action<br/>[Page 2] Our project title, participants, and activities are still subject to group discussion and approval.<br/>[Page 3] III. Initial Situation Analysis<br/>[Page 3] A. What Is the Issue?<br/>[Page 3] Performative activism happens when someone publicly shows support for a cause mainly to look<br/>[Page 3] concerned or gain approval, without genuine interest in helping that cause. However, we cannot<br/>[Page 3] judge a person's intentions from one post alone. Sharing accurate information can also be a useful<br/>[Page 3] form of activism.<br/>[Page 3] Our group wants to study the gap between being aware of social issues online and having the<br/>[Page 3] chance to take meaningful action. We will focus on college students and the practical things that<br/>[Page 3] may help them participate.<br/>[Page 3] B. Why Does It Happen?<br/>[Page 3] Some possible reasons are:<br/>[Page 3] • Students may be busy with schoolwork or family responsibilities.<br/>[Page 3] • Some volunteer activities require transportation money, time, or other resources.<br/>[Page 3] • Students may not know where to find safe and trustworthy volunteer opportunities.<br/>[Page 3] • Trending posts and online reactions can sometimes receive more attention than follow-up<br/>[Page 3] activities.<br/>[Page 3] • Some people may want to help but do not know where to start.<br/>[Page 3] We will not assume these reasons are true for everyone. We plan to ask students about their<br/>[Page 3] experiences and look for reliable studies about youth activism.<br/>[Page 3] C. Who May Be Affected?<br/>[Page 3] Our possible participants are college students from our school or a nearby student organization. A<br/>[Page 3] partner community may also benefit if we organize a volunteer activity based on a need they<br/>[Page 3] identify.<br/>[Page 3] If awareness does not lead to opportunities for participation, students may miss chances to<br/>[Page 3] contribute and learn through service. However, we also recognize that online sharing can be<br/>[Page 3] useful, especially for people who cannot join activities in person.<br/>[Page 3] D. What Can We Do About It?<br/>[Page 3] We can start by asking students how they engage with social issues, what prevents them from<br/>[Page 3] volunteering, and what simple activities they would consider joining. We can hold a short<br/>[Page 3] discussion about meaningful action and invite them to one manageable community activity, if a<br/>[Page 3] school or community partner approves it.<br/>[Page 3] We will use reliable references about youth activism, and we will review the relevant events in<br/>[Page 3] Rizal's novels. Our goal is to connect awareness with action, not to criticize students who have<br/>[Page 3] limited time or resources.<br/>[Page 4] IV. Connection to Rizal<br/>[Page 4] A. Noli Me Tangere<br/>[Page 4] Crisostomo Ibarra plans to establish a school because he believes education can improve his<br/>[Page 4] community. This connects to our project because he tries to turn an idea into something useful. We<br/>[Page 4] want students to see that caring about a problem can be a starting point for small, practical actions.<br/>[Page 4] B. El Filibusterismo<br/>[Page 4] Isagani, Makaraig, and other students work together to request a Spanish-language academy.<br/>[Page 4] Although their effort faces resistance, their story shows young people organizing around an issue<br/>[Page 4] that matters to them. We can learn from their willingness to participate and cooperate.<br/>[Page 4] C. Rizalian Values We Can Apply<br/>[Page 4] • Education: We should understand an issue before deciding how to help.<br/>[Page 4] • Responsibility: We should be sincere and careful about the causes we support.<br/>[Page 4] • Cooperation: We can do more when we work with others.<br/>[Page 4] • Service: We can use our time and skills to help our community.<br/>[Page 4] • Love of country: Small actions that serve others are one way of showing concern for our<br/>[Page 4] society.<br/>[Page 4] Rizal did not write about social media or performative activism. We are applying the lessons from<br/>[Page 4] his novels, together with his work in Dapitan, to an issue we experience today.<br/>[Page 4] V. Possible Social Action Project<br/>[Page 4] From Posts to Purpose: Turning Online Awareness into Real Community Action<br/>[Page 4] Main Goal: To encourage students to turn their awareness of social issues into simple and<br/>[Page 4] meaningful community participation.<br/>[Page 4] Our group is considering the following activities:<br/>[Page 4] 1. Quick Student Survey - Ask around 30-50 willing students how they support causes online,<br/>[Page 4] whether they have volunteered, and what makes participation difficult.<br/>[Page 4] 2. From Posts to Purpose Discussion - Hold a short conversation about useful online advocacy,<br/>[Page 4] volunteer opportunities, and Rizal's example of service.<br/>[Page 4] 3. One Small Action Challenge - Invite students to sign up for one low-cost activity based on a<br/>[Page 4] need identified by a partner school or community.<br/>[Page 4] 4. Community Volunteer Activity - Carry out the chosen activity, such as a supervised cleanup<br/>[Page 4] and proper waste segregation, with permission and guidance.<br/>[Page 4] 5. Feedback and Reflection - Ask participants what they learned, record actual participation, and<br/>[Page 4] discuss how they could join future activities.<br/>[Page 4] These are initial suggestions. We will choose the final community activity based on what our<br/>[Page 4] partner actually needs and what we can safely and realistically do.<br/>[Page 5] VI. Initial Action Plan<br/>[Page 5] Possible Activity Purpose Expected Output Sched<br/>[Page 5] ule<br/>[Page 5] Research and survey Learn about student experiences<br/>[Page 5] and prepare materials<br/>[Page 5] Survey summary and<br/>[Page 5] discussion guide<br/>[Page 5] TBD<br/>[Page 5] Short discussion Explain the issue and Rizalian<br/>[Page 5] values<br/>[Page 5] One discussion session TBD<br/>[Page 5] Volunteer invitation Help students find a simple way<br/>[Page 5] to join<br/>[Page 5] Volunteer sign-up list TBD<br/>[Page 5] Community activity Turn awareness into practical<br/>[Page 5] help<br/>[Page 5] One documented service<br/>[Page 5] activity<br/>[Page 5] TBD<br/>[Page 5] Feedback and<br/>[Page 5] evaluation<br/>[Page 5] Check participation and gather<br/>[Page 5] suggestions<br/>[Page 5] Attendance and feedback<br/>[Page 5] summary<br/>[Page 5] TBD<br/>[Page 5] Possible resources: Mobile phones, free online survey forms, internet access, presentation<br/>[Page 5] materials, drinking water, and basic activity supplies if needed.<br/>[Page 5] Possible partners: Faculty adviser, student organizations, school offices, or a barangay<br/>[Page 5] representative, depending on availability and permission.<br/>[Page 5] VII. Sustainability and Responsible Implementation<br/>[Page 5] To help our project remain practical and useful, we may:<br/>[Page 5] • Use free online tools and keep the activity small to avoid unnecessary expenses.<br/>[Page 5] • Coordinate with an existing student organization or community partner rather than starting a<br/>[Page 5] new program that we cannot maintain.<br/>[Page 5] • Choose an activity based on an actual community need and obtain permission before<br/>[Page 5] conducting it.<br/>[Page 5] • Respect participants' privacy, ask for consent before taking or sharing photos, and avoid<br/>[Page 5] judging anyone who cannot volunteer.<br/>[Page 5] • Share a simple guide on how students can join similar activities after our project ends.<br/>[Page 5] • Use attendance, a short feedback form, and partner feedback to check what our project<br/>[Page 5] actually achieved.<br/>[Page 5] We know that one event will not solve a major social issue or prove a lasting change in behavior.<br/>[Page 5] Still, we hope that our project can give students an easy first step toward volunteering and show<br/>[Page 5] that social media can be used to organize helpful actions.<br/>[Page 5] Inspired by Ibarra, the student reformers in El Filibusterismo, and Rizal's work in Dapitan, we<br/>[Page 5] want to remind ourselves that we can begin helping our community through small, realistic efforts.</p>",
+      "presentation": {
+        "title": "Rizal_Initial_Group_Brainstorming_Performative_Activism.pdf",
+        "fileUrl": "/uploads/1793510281006_Rizal_Initial_Group_Brainstorming_Performative_Activism.pdf",
+        "isUploaded": true
+      },
+      "slides": [
+        {
+          "title": "test - Overview & Key Concepts",
+          "content": "• Core system administration principles for test.\n• Procedures, tools, and configuration steps.\n• Security, maintenance, and troubleshooting."
+        },
+        {
+          "title": "test - Implementation Details",
+          "content": "• Input parameters and boundary values.\n• Iteration stopping criteria (tolerance ε).\n• Computational complexity & performance."
+        }
+      ],
+      "summary": "<p><strong>Key Takeaways:</strong> Review the system concepts, procedures, security practices, and troubleshooting steps covered in test before taking the quiz.</p>",
+      "quizSettings": {
+        "timeLimitMinutes": 10,
+        "maxQuestions": 20,
+        "passingPercentage": 50
+      },
+      "quizQuestions": [
+        {
+          "id": "gen_1793510281035_0",
+          "question": "According to the uploaded material, what best describes \"In Noli Me Tangere, Ibarra\"?",
+          "options": [
+            "linked to an uprising and suffers from accusations",
+            "not to judge people, but to help students find",
+            "still subject to group discussion and approval",
+            "college students from our school or a nearby student organization"
+          ],
+          "correctAnswer": 0,
+          "explanation": "The uploaded material states: \"In Noli Me Tangere, Ibarra is linked to an uprising and suffers from accusations.\"",
+          "source": "Uploaded course material"
+        },
+        {
+          "id": "gen_1793510281035_1",
+          "question": "According to the uploaded material, what best describes \"Our focus\"?",
+          "options": [
+            "still subject to group discussion and approval",
+            "college students from our school or a nearby student organization",
+            "to connect awareness with action, not to criticize students who have",
+            "not to judge people, but to help students find"
+          ],
+          "correctAnswer": 3,
+          "explanation": "The uploaded material states: \"Our focus is not to judge people, but to help students find.\"",
+          "source": "Uploaded course material"
+        },
+        {
+          "id": "gen_1793510281035_2",
+          "question": "According to the uploaded material, what best describes \"Our project title, participants, and activities\"?",
+          "options": [
+            "to connect awareness with action, not to criticize students who have",
+            "one way of showing concern for our",
+            "still subject to group discussion and approval",
+            "college students from our school or a nearby student organization"
+          ],
+          "correctAnswer": 2,
+          "explanation": "The uploaded material states: \"Our project title, participants, and activities is still subject to group discussion and approval.\"",
+          "source": "Uploaded course material"
+        },
+        {
+          "id": "gen_1793510281035_3",
+          "question": "According to the uploaded material, what best describes \"Our possible participants\"?",
+          "options": [
+            "considering the following activities:",
+            "college students from our school or a nearby student organization",
+            "to connect awareness with action, not to criticize students who have",
+            "one way of showing concern for our"
+          ],
+          "correctAnswer": 1,
+          "explanation": "The uploaded material states: \"Our possible participants is college students from our school or a nearby student organization.\"",
+          "source": "Uploaded course material"
+        },
+        {
+          "id": "gen_1793510281035_4",
+          "question": "According to the uploaded material, what best describes \"Our goal\"?",
+          "options": [
+            "to connect awareness with action, not to criticize students who have",
+            "one way of showing concern for our",
+            "considering the following activities:",
+            "linked to an uprising and suffers from accusations"
+          ],
+          "correctAnswer": 0,
+          "explanation": "The uploaded material states: \"Our goal is to connect awareness with action, not to criticize students who have.\"",
+          "source": "Uploaded course material"
+        },
+        {
+          "id": "gen_1793510281035_5",
+          "question": "According to the uploaded material, what best describes \"Love of country: Small actions that serve others\"?",
+          "options": [
+            "considering the following activities:",
+            "linked to an uprising and suffers from accusations",
+            "not to judge people, but to help students find",
+            "one way of showing concern for our"
+          ],
+          "correctAnswer": 3,
+          "explanation": "The uploaded material states: \"Love of country: Small actions that serve others is one way of showing concern for our.\"",
+          "source": "Uploaded course material"
+        },
+        {
+          "id": "gen_1793510281035_6",
+          "question": "According to the uploaded material, what best describes \"Our group\"?",
+          "options": [
+            "not to judge people, but to help students find",
+            "still subject to group discussion and approval",
+            "considering the following activities:",
+            "linked to an uprising and suffers from accusations"
+          ],
+          "correctAnswer": 2,
+          "explanation": "The uploaded material states: \"Our group is considering the following activities:.\"",
+          "source": "Uploaded course material"
+        }
+      ]
+    }
+  ],
+  "submissions": [],
+  "settings": {
+    "passingPercentage": 50
+  }
 }

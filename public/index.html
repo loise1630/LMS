@@ -11,11 +11,22 @@
   <div id="pattern-waves-background" class="pattern-waves pattern-waves--background" aria-hidden="true"></div>
   <div id="micro-slats-background" class="micro-slats micro-slats--background" aria-hidden="true"></div>
 
+  <aside id="faculty-sidebar" class="faculty-sidebar" aria-label="Faculty navigation">
+    <div class="faculty-sidebar-brand"><span class="faculty-brand-mark" aria-hidden="true"><svg viewBox="0 0 64 72" fill="none"><path d="M32 4 56 14v19c0 16-10 27-24 35C18 60 8 49 8 33V14L32 4Z"/><rect x="24" y="29" width="16" height="16" rx="3"/><path d="M27 29v-4a5 5 0 0 1 10 0v4m-5 8v3"/></svg></span><strong>SYSTEM<br>ADMINISTRATION &amp;<br>MAINTENANCE</strong></div>
+    <nav>
+      <button class="active" data-view="topics" onclick="App.navigate('topics')"><span>⌂</span>Dashboard</button>
+      <button data-view="master-report" onclick="App.navigate('master-report')"><span>▤</span>Gradebook</button>
+      <button onclick="App.openSubjectModal()"><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 2.94-.08-.02a1.7 1.7 0 0 0-1.77.58l-.05.07h-3.4l-.03-.08a1.7 1.7 0 0 0-1.49-1.17l-.1-.01-2.94-1.7.02-.08a1.7 1.7 0 0 0-.58-1.77l-.07-.05v-3.4l.08-.03a1.7 1.7 0 0 0 1.17-1.49l.01-.1 1.7-2.94.08.02a1.7 1.7 0 0 0 1.77-.58l.05-.07h3.4l.03.08a1.7 1.7 0 0 0 1.49 1.17l.1.01 2.94 1.7-.02.08a1.7 1.7 0 0 0 .58 1.77l.07.05v3.4z" transform="translate(-1 -1) scale(1.08)"/></svg></span>Settings</button>
+      <button onclick="App.logout()"><span>⇥</span>Logout</button>
+    </nav>
+    <small>v1.0.0</small>
+  </aside>
+
   <!-- Top Sticky Navigation Bar -->
   <header class="top-nav">
     <div class="nav-container">
       <div class="brand-section" style="cursor: pointer;" onclick="if(App.state.user) App.navigate('topics')">
-        <div class="brand-icon">🖥️</div>
+        <div class="brand-icon">SA</div>
         <div class="brand-text">
           <h1>System Administration &amp; Maintenance</h1>
           <p>Modular Learning & Automated Progression System</p>

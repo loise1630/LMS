@@ -97,16 +97,16 @@ const Faculty = {
                 </div>
               </div>
               <button type="button" class="btn btn-primary btn-sm" id="btn-run-ocr" onclick="Faculty.runOCR()">
-                🔍 Scan Photo (OCR)
+                 Scan Photo (OCR)
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Section 3: Extracted Notes / Lecture Content -->
+        <!-- Extracted content is split into learner-facing slides when published. -->
         <div class="form-group">
           <label class="form-label" style="font-weight: 700; display: flex; justify-content: space-between;">
-            <span>3. Lesson Notes & Extracted Content</span>
+            <span>3. Extracted Course Content</span>
             <span style="font-size: 0.75rem; color: #64748b;">(Extracted from file or editable)</span>
           </label>
           <textarea id="modal-topic-lesson" class="form-control" style="min-height: 110px; font-size: 0.85rem;" placeholder="Concepts, administration procedures, commands, and troubleshooting steps extracted from the material..."></textarea>
@@ -116,12 +116,17 @@ const Faculty = {
 
         <div class="form-group" style="padding: 1rem; background: #f8fafc; border-radius: 10px;">
           <strong>Quiz option</strong>
+          <div class="form-group" style="margin-top:.75rem;margin-bottom:.5rem;">
+            <label class="form-label" for="modal-topic-timer">Quiz time limit (minutes)</label>
+            <input type="number" id="modal-topic-timer" class="form-control" value="10" min="1" max="180" required />
+            <small>Students will be automatically submitted when time runs out.</small>
+          </div>
           <label style="display:block; margin-top:.65rem;"><input id="quiz-choice-generated" type="radio" name="quiz-choice" value="generated" disabled onchange="Faculty.quizChoice='generated'" /> Use generated quiz (<span id="generated-quiz-count">waiting for uploaded material</span>)</label>
           <label style="display:block; margin-top:.5rem;"><input id="quiz-choice-uploaded" type="radio" name="quiz-choice" value="uploaded" checked onchange="Faculty.quizChoice='uploaded'" /> Upload my own quiz file after creating the topic</label>
           <div id="generated-quiz-preview" style="display:none; max-height:180px; overflow:auto; margin-top:.75rem; padding:.75rem; background:white; border:1px solid #e2e8f0; border-radius:8px;"></div>
         </div>
       `,
-      confirmText: '🚀 Publish Topic & Quiz to Students',
+      confirmText: ' Publish Topic & Quiz to Students',
       onConfirm: async () => {
         await Faculty.submitNewTopic();
       }
@@ -446,7 +451,7 @@ const Faculty = {
           lessonInput.value = result.text;
         }
         if (statusText) {
-          statusText.innerHTML = `✅ <strong style="color: #166534;">OCR Successful!</strong> Extracted readable text (${result.engine}).`;
+          statusText.innerHTML = ` <strong style="color: #166534;">OCR Successful!</strong> Extracted readable text (${result.engine}).`;
         }
         App.toast('OCR extracted text from photo successfully!', 'success');
         this.generateStagedQuiz();
@@ -489,6 +494,11 @@ const Faculty = {
       App.toast('At least four clean questions are required. Please upload your own quiz if the material is too noisy.', 'warning');
       return;
     }
+    const timeLimitMinutes = Number(document.getElementById('modal-topic-timer')?.value);
+    if (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1 || timeLimitMinutes > 180) {
+      App.toast('Set the quiz time limit from 1 to 180 minutes.', 'warning');
+      return;
+    }
 
     let fileUrl = '';
     let fileName = this.stagedFileName || '';
@@ -512,22 +522,12 @@ const Faculty = {
       }
     }
 
-    // Prepare slides from material or title
-    const slides = [
-      {
-        title: `${title} - Overview & Key Concepts`,
-        content: `• Core system administration principles for ${title}.\n• Procedures, tools, and configuration steps.\n• Security, maintenance, and troubleshooting.`
-      },
-      {
-        title: `${title} - Implementation Details`,
-        content: `• Input parameters and boundary values.\n• Iteration stopping criteria (tolerance ε).\n• Computational complexity & performance.`
-      }
-    ];
+    const slides = [];
 
     // Format HTML lesson text
     const formattedLesson = lessonText
       ? lessonText.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('')
-      : `<p>Welcome to ${title}. Please review the lecture notes and presentations.</p>`;
+      : '';
 
     try {
       const res = await App.api('/api/topics', {
@@ -538,8 +538,8 @@ const Faculty = {
           presentationTitle: fileName,
           presentationFileUrl: fileUrl,
           slides,
-          summary: `<p><strong>Key Takeaways:</strong> Review the system concepts, procedures, security practices, and troubleshooting steps covered in ${title} before taking the quiz.</p>`,
-          quizSettings: { timeLimitMinutes: 10, maxQuestions: 20, passingPercentage: 50 },
+          summary: '',
+          quizSettings: { timeLimitMinutes, maxQuestions: 20, passingPercentage: 50 },
           quizQuestions: []
         })
       });
@@ -571,7 +571,7 @@ const Faculty = {
   openLessonEditor() {
     const t = App.state.currentTopic;
     App.showModal({
-      title: '✏️ Edit Topic Lesson Notes',
+      title: ' Edit Topic Lesson Notes',
       body: `
         <div class="form-group">
           <label class="form-label">Topic Title</label>
@@ -606,7 +606,7 @@ const Faculty = {
   openSummaryEditor() {
     const t = App.state.currentTopic;
     App.showModal({
-      title: '📌 Edit Topic Summary & Key Takeaways',
+      title: ' Edit Topic Summary & Key Takeaways',
       body: `
         <div class="form-group">
           <label class="form-label">Topic Summary Content</label>
@@ -634,7 +634,7 @@ const Faculty = {
   openUploadModal() {
     const t = App.state.currentTopic;
     App.showModal({
-      title: '📤 Upload Presentation / Photo Material',
+      title: ' Upload Presentation / Photo Material',
       body: `
         <div class="form-group">
           <label class="form-label">Select File (.png, .jpg, .pdf, .pptx, .txt)</label>
@@ -699,7 +699,7 @@ const Faculty = {
         <div style="border: 1px solid var(--gray-300); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem; background: var(--gray-50);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
             <strong>Slide #${idx + 1}</strong>
-            <button class="btn btn-danger btn-sm" onclick="Faculty.removeSlide(${idx})">🗑️ Delete</button>
+            <button class="btn btn-danger btn-sm" onclick="Faculty.removeSlide(${idx})"> Delete</button>
           </div>
           <div class="form-group">
             <input type="text" class="form-control" id="slide-title-${idx}" value="${s.title}" placeholder="Slide Heading" />
@@ -712,7 +712,7 @@ const Faculty = {
     });
 
     App.showModal({
-      title: '🖥️ Make Your Own Inside: Slide Deck Builder',
+      title: ' Make Your Own Inside: Slide Deck Builder',
       body: `
         <p style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 1rem;">
           Design in-browser presentation slides for students to review directly inside this portal.
@@ -721,7 +721,7 @@ const Faculty = {
           ${slidesEditorHtml}
         </div>
         <button class="btn btn-secondary btn-sm" style="margin-top: 0.5rem;" onclick="Faculty.addEmptySlide()">
-          ➕ Add Another Slide
+           Add Another Slide
         </button>
       `,
       confirmText: 'Save All Slides',
@@ -794,7 +794,7 @@ const Faculty = {
           const isCorrect = oIdx === q.correctAnswer;
           optsHtml += `
             <div style="font-size: 0.85rem; padding: 0.25rem 0.5rem; border-radius: 4px; margin-bottom: 2px; ${isCorrect ? 'background: #dcfce7; font-weight: 700; color: #166534;' : ''}">
-              ${letters[oIdx]}) ${opt} ${isCorrect ? '✓ (Correct Answer)' : ''}
+              ${letters[oIdx]}) ${opt} ${isCorrect ? ' (Correct Answer)' : ''}
             </div>
           `;
         });
@@ -803,18 +803,18 @@ const Faculty = {
           <div style="border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem; background: white;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
               <span style="font-weight: 700; color: var(--primary);">Question #${qIdx + 1}</span>
-              <button class="btn btn-danger btn-sm" onclick="Faculty.deleteQuestion('${topicId}', ${qIdx})">🗑️ Delete</button>
+              <button class="btn btn-danger btn-sm" onclick="Faculty.deleteQuestion('${topicId}', ${qIdx})"> Delete</button>
             </div>
             <div style="font-weight: 600; margin-bottom: 0.5rem;">${q.question}</div>
             <div style="margin-left: 0.5rem; margin-bottom: 0.5rem;">${optsHtml}</div>
-            ${q.explanation ? `<div style="font-size: 0.8rem; color: var(--gray-600); background: var(--gray-50); padding: 0.35rem 0.5rem; border-radius: 4px;">💡 ${q.explanation}</div>` : ''}
+            ${q.explanation ? `<div style="font-size: 0.8rem; color: var(--gray-600); background: var(--gray-50); padding: 0.35rem 0.5rem; border-radius: 4px;"> ${q.explanation}</div>` : ''}
           </div>
         `;
       });
 
       main.innerHTML = `
         <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-          <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅️ Back to Table of Contents</button>
+          <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅ Back to Table of Contents</button>
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <button class="btn btn-success btn-sm" onclick="Faculty.regenerateQuizFromMaterial('${topicId}')">
               Regenerate from Uploaded Material
@@ -838,11 +838,11 @@ const Faculty = {
 
           <!-- Quiz Settings Form -->
           <div style="background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
-            <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--gray-800);">⚙️ Assessment Rules & Constraints</h4>
+            <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--gray-800);"> Assessment Rules & Constraints</h4>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
               <div class="form-group" style="margin-bottom: 0;">
                 <label class="form-label">Time Limit (Minutes)</label>
-                <input type="number" id="setting-timer" class="form-control" value="${settings.timeLimitMinutes || 10}" min="1" max="60" />
+                <input type="number" id="setting-timer" class="form-control" value="${settings.timeLimitMinutes || 10}" min="1" max="180" />
               </div>
               <div class="form-group" style="margin-bottom: 0;">
                 <label class="form-label">Max Questions to Serve</label>
@@ -854,7 +854,7 @@ const Faculty = {
               </div>
             </div>
             <div style="margin-top: 1rem; text-align: right;">
-              <button class="btn btn-primary btn-sm" onclick="Faculty.saveQuizSettings('${topicId}')">💾 Update Settings</button>
+              <button class="btn btn-primary btn-sm" onclick="Faculty.saveQuizSettings('${topicId}')"> Update Settings</button>
             </div>
           </div>
 
@@ -904,6 +904,15 @@ const Faculty = {
     const maxQuestions = parseInt(document.getElementById('setting-max').value, 10);
     const passingPercentage = Number(App.state.settings?.passingPercentage) || 50;
 
+    if (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1 || timeLimitMinutes > 180) {
+      App.toast('Set the quiz time limit from 1 to 180 minutes.', 'warning');
+      return;
+    }
+    if (!Number.isInteger(maxQuestions) || maxQuestions < 1 || maxQuestions > 50) {
+      App.toast('Set the question limit from 1 to 50.', 'warning');
+      return;
+    }
+
     try {
       const res = await App.api(`/api/quizzes/${topicId}`, {
         method: 'POST',
@@ -912,6 +921,9 @@ const Faculty = {
         })
       });
       if (res.success) {
+        if (App.state.currentTopic?.id === topicId) {
+          App.state.currentTopic.quizSettings = { ...(App.state.currentTopic.quizSettings || {}), timeLimitMinutes };
+        }
         App.toast('Quiz settings successfully updated!', 'success');
       }
     } catch (e) {}
@@ -923,7 +935,7 @@ const Faculty = {
 
   openBulkImportModal(topicId) {
     App.showModal({
-      title: '📥 Upload Quiz File',
+      title: ' Upload Quiz File',
       body: `
         <div class="form-group">
           <label class="form-label">Upload Quiz File (TXT, PDF, or PPTX)</label>
