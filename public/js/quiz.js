@@ -217,7 +217,7 @@ const Quiz = {
   cancelQuiz() {
     if (confirm('Exit the quiz? Your progress will be lost.')) {
       clearInterval(this.state.timerInterval);
-      App.navigate('topic-detail', this.state.topicId);
+      App.goBack('topic-detail', this.state.topicId);
     }
   },
 

@@ -814,7 +814,7 @@ const Faculty = {
 
       main.innerHTML = `
         <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-          <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅ Back to Table of Contents</button>
+          <button class="btn btn-secondary btn-sm" onclick="App.goBack('topics')">Back to modules</button>
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <button class="btn btn-success btn-sm" onclick="Faculty.regenerateQuizFromMaterial('${topicId}')">
               Regenerate from Uploaded Material

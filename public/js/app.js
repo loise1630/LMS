@@ -46,7 +46,7 @@ const App = {
   async init() {
     this.bindEvents();
     this.getLocalUsers();
-    window.history.replaceState({ itpeLms: true, view: 'auth', authMode: 'login' }, '', window.location.href);
+    window.history.replaceState({ itpeLms: true, view: 'auth', authMode: 'login', depth: 0 }, '', window.location.href);
     window.addEventListener('popstate', event => {
       const entry = event.state;
       if (!entry || !entry.itpeLms) return;
@@ -61,6 +61,7 @@ const App = {
     } else {
       this.renderAuth('login', { historyMode: 'replace' });
     }
+    document.body.classList.remove('app-booting');
   },
 
   async api(endpoint, options = {}) {
@@ -186,10 +187,11 @@ const App = {
     const historyMode = options.historyMode || 'push';
     const currentEntry = window.history.state;
     const isSameEntry = currentEntry?.itpeLms && currentEntry.view === view && (currentEntry.topicId || null) === (topicId || null);
+    const currentDepth = currentEntry?.itpeLms ? Number(currentEntry.depth) || 0 : 0;
     if (historyMode === 'replace') {
-      window.history.replaceState({ itpeLms: true, view, topicId: topicId || null }, '', window.location.href);
+      window.history.replaceState({ itpeLms: true, view, topicId: topicId || null, depth: currentDepth }, '', window.location.href);
     } else if (historyMode === 'push' && !isSameEntry) {
-      window.history.pushState({ itpeLms: true, view, topicId: topicId || null }, '', window.location.href);
+      window.history.pushState({ itpeLms: true, view, topicId: topicId || null, depth: currentDepth + 1 }, '', window.location.href);
     }
 
     window.PatternWaves?.stop();
@@ -227,6 +229,15 @@ const App = {
     else if (view === 'quiz')        { Quiz.start(topicId); }
     else if (view === 'topic-report'){ Reports.renderTopicReport(topicId); }
     else if (view === 'master-report'){ Reports.renderMasterReport(); }
+  },
+
+  goBack(fallbackView = 'topics', fallbackTopicId = null) {
+    const currentEntry = window.history.state;
+    if (currentEntry?.itpeLms && Number(currentEntry.depth) > 0) {
+      window.history.back();
+      return;
+    }
+    this.navigate(fallbackView, fallbackTopicId, { historyMode: 'replace' });
   },
 
   renderTopicsView() {
@@ -498,7 +509,7 @@ const App = {
 
     main.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.5rem">
-        <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">
+        <button class="btn btn-secondary btn-sm" onclick="App.goBack('topics')">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           All Modules
         </button>
@@ -555,9 +566,10 @@ const App = {
     const historyMode = options.historyMode || 'push';
     const currentEntry = window.history.state;
     const isSameEntry = currentEntry?.itpeLms && currentEntry.view === 'auth' && currentEntry.authMode === mode;
-    const authEntry = { itpeLms: true, view: 'auth', authMode: mode };
+    const currentDepth = currentEntry?.itpeLms ? Number(currentEntry.depth) || 0 : 0;
+    const authEntry = { itpeLms: true, view: 'auth', authMode: mode, depth: currentDepth };
     if (historyMode === 'replace') window.history.replaceState(authEntry, '', window.location.href);
-    else if (historyMode === 'push' && !isSameEntry) window.history.pushState(authEntry, '', window.location.href);
+    else if (historyMode === 'push' && !isSameEntry) window.history.pushState({ ...authEntry, depth: currentDepth + 1 }, '', window.location.href);
 
     this.state.currentView = 'auth';
     window.PatternWaves?.stop();

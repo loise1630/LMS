@@ -2181,6 +2181,22 @@ body.portal-view .btn-accent {
 }
 .btn-accent:hover,
 body.portal-view .btn-accent:hover { color:#171311; background:#d6aa80; border-color:#d6aa80; box-shadow:0 4px 12px rgba(201,154,110,.16); }
+
+/* Hide the empty SPA shell during initial authentication and data loading. */
+.app-boot-screen { display:none; }
+body.app-booting { overflow:hidden; background:#0c0d10; }
+body.app-booting .app-boot-screen { position:fixed; z-index:10000; inset:0; display:grid; place-items:center; background:radial-gradient(ellipse at 50% 40%,rgba(166,95,86,.09),transparent 42%),#0c0d10; }
+body.app-booting .top-nav,
+body.app-booting .main-wrapper,
+body.app-booting .faculty-sidebar { visibility:hidden; }
+.app-boot-content { display:flex; flex-direction:column; align-items:center; gap:12px; padding:28px; text-align:center; }
+.app-boot-mark { display:grid; place-items:center; width:54px;height:54px; margin-bottom:6px; border:1px solid rgba(201,154,110,.28); border-radius:15px; color:#f2ddd5; background:linear-gradient(145deg,#a65f56,#70433e); box-shadow:0 10px 30px rgba(0,0,0,.28); font-size:1rem; font-weight:750; letter-spacing:-.04em; }
+.app-boot-content > strong { color:#eee9ed; font-size:.96rem; font-weight:650; }
+.app-boot-message { color:#8e8991; font-size:.76rem; }
+.app-boot-progress { display:block; width:124px; height:2px; margin-top:9px; overflow:hidden; border-radius:99px; background:rgba(255,255,255,.08); }
+.app-boot-progress i { display:block; width:42%; height:100%; border-radius:inherit; background:#bd806d; animation:app-boot-load 1.2s ease-in-out infinite alternate; }
+@keyframes app-boot-load { from { transform:translateX(0); opacity:.55; } to { transform:translateX(140%); opacity:1; } }
+@media(prefers-reduced-motion:reduce) { .app-boot-progress i { animation:none; margin-left:29%; } }
 .btn-secondary,
 body.portal-view .btn-secondary {
   color:#ddd6db;

@@ -1,2 +1,22 @@
 node_modules/
+
+# Local credentials and private configuration
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.local
+*.local.*
+
+# User data and uploaded course files
+/uploads/
+/data/db.json
+/data/db.json-*
+
+# Local logs and operating system files
+*.log
+.DS_Store
+Thumbs.db

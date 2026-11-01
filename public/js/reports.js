@@ -63,7 +63,7 @@ const Reports = {
 
         <div class="no-print" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
           <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅ Back to Table of Contents</button>
+            <button class="btn btn-secondary btn-sm" onclick="App.goBack('topics')">Back to modules</button>
             <button class="btn btn-outline btn-sm" onclick="App.navigate('topic-detail', '${t.id}')"> Open Lesson</button>
           </div>
 
@@ -215,11 +215,9 @@ const Reports = {
 
         <div class="report-toolbar no-print">
           <div><span class="report-eyebrow">ACADEMIC RECORDS</span><h1>Gradebook</h1><p>Student progress and assessment results across the course.</p></div>
-          <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">⬅ Back to Table of Contents</button>
-
           <!-- Whiteboard Requirement #8: Print, PDF, Spreadsheet -->
           <div class="report-actions">
-            <button class="btn btn-secondary btn-sm" onclick="App.navigate('topics')">Back to dashboard</button>
+            <button class="btn btn-secondary btn-sm" onclick="App.goBack('topics')">Back</button>
             <button class="btn btn-primary btn-sm" onclick="Reports.printReport()">
                Print
             </button>
