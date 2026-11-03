@@ -42,6 +42,8 @@ const Quiz = {
       if (err.message && err.message.includes('locked')) {
         App.toast(`Topic is locked — pass the previous quiz with ${App.state.settings?.passingPercentage || 50}% first!`, 'danger');
         App.navigate('topics');
+      } else if (err.data?.retakeLimitReached) {
+        App.navigate('topic-detail', topicId);
       }
     }
   },
@@ -201,7 +203,7 @@ const Quiz = {
     try {
       const res = await App.api(`/api/quizzes/${submittedTopicId}/submit`, {
         method: 'POST',
-        body: JSON.stringify({ answers: this.state.userAnswers })
+        body: JSON.stringify({ answers: this.state.userAnswers, questionIds: this.state.questions.map(question => question.id) })
       });
       if (res.success) {
         if (App.state.currentView !== 'quiz' || App.state.selectedTopicId !== submittedTopicId) return;
@@ -211,6 +213,8 @@ const Quiz = {
       }
     } catch (e) {
       this.state.isSubmitting = false;
+      if (e.status === 401) await App.checkAuth();
+      else if (e.data?.retakeLimitReached) App.navigate('topic-detail', submittedTopicId);
     }
   },
 

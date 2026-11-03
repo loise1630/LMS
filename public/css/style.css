@@ -2669,6 +2669,49 @@ body.portal-view .empty-curriculum-primary,
 body.portal-view .empty-curriculum-secondary { min-height: 44px; padding: .7rem 1.2rem !important; border-radius: 9px !important; }
 body.portal-view .empty-curriculum-secondary { margin-left: .4rem !important; border-color: rgba(193,137,105,.2); background: rgba(255,255,255,.025); }
 
+/* Per-user day/night palette and course upload form surfaces. */
+body.portal-view .upload-topic-form { color: var(--text-primary); }
+body.portal-view .upload-topic-kicker { color: #d38a68; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+body.portal-view .upload-topic-description { margin: .35rem 0 0; color: var(--text-secondary); font-size: .88rem; }
+body.portal-view .upload-topic-step { border: 1px solid rgba(199,123,91,.2); background: linear-gradient(145deg, rgba(199,123,91,.07), rgba(255,255,255,.018)); box-shadow: inset 0 1px rgba(255,255,255,.025); }
+body.portal-view .upload-topic-step > div > strong { color: var(--text-primary); }
+body.portal-view .upload-topic-step .form-label { color: var(--text-secondary); }
+body.portal-view .upload-topic-step-number { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; background:rgba(199,123,91,.14); color:#e2b08d; font-weight:800; }
+body.portal-view .upload-topic-step small { color: var(--text-muted); }
+body.portal-view .upload-topic-step #ocr-preview-container,
+body.portal-view .upload-topic-step #generated-quiz-preview { background:rgba(10,12,14,.7) !important; border-color:rgba(255,255,255,.09) !important; color:var(--text-primary) !important; }
+body.portal-view .upload-topic-step #ocr-preview-container { background:rgba(10,12,14,.7) !important; border-color:rgba(255,255,255,.09) !important; }
+body.portal-view .upload-topic-step #ocr-filename { color:#e8e4df !important; }
+body.portal-view .upload-topic-step #ocr-status-text { color:#bbb6af !important; }
+body.portal-view .upload-topic-step > div > div[style*="background:#faf9f8"] { background:rgba(10,12,14,.45) !important; }
+body.portal-view .theme-toggle { display:inline-flex; align-items:center; gap:.4rem; }
+body.light-mode { color-scheme: light; background:#f3f0ec !important; color:#292725; }
+body.light-mode.portal-view { --bg-base:#f3f0ec; --bg-surface:rgba(255,255,255,.94); --bg-card:#fff; --bg-card-hover:#faf7f3; --bg-glass:rgba(40,34,29,.035); --bg-glass-hover:rgba(40,34,29,.065); --bg-input:#fff; --border-subtle:rgba(56,46,39,.12); --border-card:rgba(56,46,39,.14); --text-primary:#282522; --text-secondary:#57514c; --text-muted:#77706a; }
+body.light-mode.portal-view #micro-slats-background { opacity:.14; }
+body.light-mode.portal-view .top-nav, body.light-mode.portal-view .subject-banner, body.light-mode.portal-view .card, body.light-mode.portal-view .modal-content, body.light-mode.portal-view .faculty-account, body.light-mode.portal-view .user-pill { color:#292725; background:rgba(255,255,255,.94); border-color:rgba(56,46,39,.14); }
+body.light-mode.portal-view .main-wrapper, body.light-mode.portal-view .module-section-title, body.light-mode.portal-view .topic-title, body.light-mode.portal-view h1, body.light-mode.portal-view h2, body.light-mode.portal-view h3, body.light-mode.portal-view h4 { color:#292725; }
+body.light-mode.portal-view .form-control, body.light-mode.portal-view .auth-input { color:#292725; background:#fff; border-color:rgba(56,46,39,.2); }
+body.light-mode.portal-view .form-control:focus { background:#fff; }
+body.light-mode.portal-view select.form-control option { color:#292725; background:#fff; }
+body.light-mode.portal-view .modal-header, body.light-mode.portal-view .modal-footer { border-color:rgba(56,46,39,.12); }
+body.light-mode.portal-view .modal-close, body.light-mode.portal-view .btn-ghost, body.light-mode.portal-view .btn-secondary { color:#514942; }
+body.light-mode.portal-view .upload-topic-step { background:linear-gradient(145deg,#fff,#fbf7f3); border-color:rgba(166,95,86,.2); }
+body.light-mode.portal-view .upload-topic-step-number { color:#8b5048; background:rgba(166,95,86,.12); }
+body.light-mode.portal-view .upload-topic-step #ocr-preview-container,
+body.light-mode.portal-view .upload-topic-step #generated-quiz-preview { background:#f7f3ef !important; border-color:rgba(56,46,39,.12) !important; }
+body.light-mode.portal-view .upload-topic-step > div > div[style*="background:#faf9f8"] { background:#f7f3ef !important; }
+body.light-mode.portal-view .upload-topic-step #ocr-filename { color:#292725 !important; }
+body.light-mode.portal-view .topic-summary-body, body.light-mode.portal-view .slide-content, body.light-mode.portal-view .topic-card-body { color:#514c47; }
+body.light-mode.portal-view .topic-card, body.light-mode.portal-view .study-tip-card, body.light-mode.portal-view .presentation-card { background:rgba(255,255,255,.9); border-color:rgba(56,46,39,.12); }
+body.light-mode.portal-view .theme-toggle { color:#63473b; }
+body.light-mode.registration-view { background:#f3f0ec !important; color:#292725; }
+body.light-mode.registration-view .top-nav { background:rgba(255,255,255,.94); border-color:rgba(56,46,39,.14); }
+body.light-mode.registration-view .landing-auth-card { color:#292725; background:linear-gradient(155deg,#fff,#f7f3ef); border-color:rgba(166,95,86,.22); }
+body.light-mode.registration-view .landing-auth-card h1, body.light-mode.registration-view .landing-auth-card h2, body.light-mode.registration-view .landing-auth-card h3 { color:#292725; }
+body.light-mode.registration-view .auth-label, body.light-mode.registration-view .auth-footer-text, body.light-mode.registration-view .auth-card-subtitle { color:#57514c; }
+body.light-mode.registration-view .auth-input { color:#292725; background:#fff; border-color:rgba(56,46,39,.2); }
+body.light-mode.registration-view .theme-toggle { color:#63473b; }
+
 @media (max-width: 600px) {
   body.portal-view .empty-curriculum-state { min-height: 300px; padding: 2.25rem 1.1rem; }
   body.portal-view .empty-curriculum-primary,
@@ -2682,3 +2725,78 @@ body.portal-view .btn-primary:hover,
 body.faculty-dashboard .faculty-quick-actions .btn-primary:hover { color:#fff; background:#b36e64; border-color:#b36e64; box-shadow:0 5px 14px rgba(166,95,86,.2); }
 body.portal-view .btn-accent { color:#221b18; background:#c99a6e; border-color:#c99a6e; box-shadow:none; }
 body.portal-view .btn-accent:hover { color:#171311; background:#d6aa80; border-color:#d6aa80; box-shadow:0 4px 12px rgba(201,154,110,.16); }
+
+/* Restore readable button contrast when the user chooses light mode. */
+body.light-mode.portal-view .btn-secondary,
+body.light-mode.portal-view .faculty-quick-actions .btn-secondary { color:#51423c !important; background:#fff !important; border:1px solid #d9c9c1 !important; box-shadow:0 2px 5px rgba(61,43,34,.06) !important; }
+body.light-mode.portal-view .btn-secondary:hover,
+body.light-mode.portal-view .faculty-quick-actions .btn-secondary:hover { color:#382c27 !important; background:#f7eee9 !important; border-color:#c99b87 !important; }
+body.light-mode.portal-view .btn-ghost { color:#62534d !important; background:transparent !important; border-color:transparent !important; }
+body.light-mode.portal-view .btn-ghost:hover { color:#4b342d !important; background:rgba(166,95,86,.09) !important; border-color:rgba(166,95,86,.12) !important; }
+body.light-mode.portal-view .btn-outline { color:#8b5048 !important; background:#fff !important; border-color:#c99b87 !important; }
+body.light-mode.portal-view .btn-outline:hover { color:#733f38 !important; background:#f8eeeb !important; border-color:#aa7164 !important; }
+body.light-mode.portal-view .btn-danger { color:#fff !important; background:#914e4b !important; border-color:#914e4b !important; }
+body.light-mode.portal-view .btn-danger:hover { background:#7c3f3d !important; border-color:#7c3f3d !important; }
+body.light-mode.portal-view .faculty-quick-actions .btn-primary { color:#fff !important; background:#a65f56 !important; border-color:#a65f56 !important; }
+body.light-mode.portal-view .faculty-quick-actions .btn-primary:hover { background:#914e47 !important; border-color:#914e47 !important; }
+body.light-mode.portal-view .theme-toggle { border:1px solid rgba(166,95,86,.22) !important; border-radius:9px; background:rgba(166,95,86,.07) !important; }
+
+/* Light theme surfaces and text across dashboards, reports, lessons and tables. */
+body.light-mode.portal-view.faculty-dashboard { background:#f3f0ec !important; }
+body.light-mode.portal-view.faculty-dashboard .faculty-welcome h1 { color:#292522 !important; }
+body.light-mode.portal-view.faculty-dashboard .faculty-welcome > div:first-child > span { color:#766c66 !important; }
+body.light-mode.portal-view.faculty-dashboard .module-section-title { color:#302a26 !important; }
+body.light-mode.portal-view.faculty-dashboard .topic-card { color:#342e29; background:#fff; border-color:rgba(75,55,44,.14); box-shadow:0 12px 30px rgba(66,47,36,.09); }
+body.light-mode.portal-view.faculty-dashboard .topic-card .topic-title { color:#302a26 !important; }
+body.light-mode.portal-view.faculty-dashboard .topic-card .topic-card-body { color:#655d57; }
+body.light-mode.portal-view .report-toolbar h1 { color:#302a26 !important; }
+body.light-mode.portal-view .report-toolbar p { color:#756b65 !important; }
+body.light-mode.portal-view #main-content .card h2,
+body.light-mode.portal-view #main-content .card h3,
+body.light-mode.portal-view #main-content .card h4 { color:#302a26 !important; }
+body.light-mode.portal-view #main-content .card p { color:#655d57 !important; }
+body.light-mode.portal-view #main-content .card [style*="background: rgba(15, 23, 42"] { background:#f5f0ec !important; border-color:rgba(75,55,44,.14) !important; }
+body.light-mode.portal-view .report-stat-card { color:#302a26; background:linear-gradient(145deg,#fff,#f8f4f0); border-color:rgba(75,55,44,.14); box-shadow:0 8px 20px rgba(66,47,36,.06); }
+body.light-mode.portal-view .report-stat-card > span { color:#655b55; }
+body.light-mode.portal-view .report-stat-card strong { color:#302a26; }
+body.light-mode.portal-view .report-stat-card small { color:#807670; }
+body.light-mode.portal-view.faculty-dashboard .gradebook-card { color:#38312c; background:#fff; border-color:rgba(75,55,44,.14); box-shadow:0 10px 28px rgba(66,47,36,.07); }
+body.light-mode.portal-view.faculty-dashboard .gradebook-card > .no-print { border-color:rgba(75,55,44,.13) !important; }
+body.light-mode.portal-view.faculty-dashboard .gradebook-card h2 { color:#302a26 !important; }
+body.light-mode.portal-view.faculty-dashboard .gradebook-card .no-print p { color:#706761 !important; }
+body.light-mode.portal-view.faculty-dashboard .gradebook-card .data-table th,
+body.light-mode.portal-view .data-table th { color:#5a4d45 !important; background:#f2ece7 !important; border-color:rgba(75,55,44,.14) !important; }
+body.light-mode.portal-view.faculty-dashboard .gradebook-card .data-table td,
+body.light-mode.portal-view .data-table td { color:#514943 !important; border-color:rgba(75,55,44,.11) !important; }
+body.light-mode.portal-view.faculty-dashboard .gradebook-card .data-table td code,
+body.light-mode.portal-view .data-table td code { color:#755b50 !important; }
+body.light-mode.portal-view.faculty-dashboard .gradebook-card .data-table tbody tr:nth-child(even) td,
+body.light-mode.portal-view .data-table tbody tr:nth-child(even) td { background:rgba(166,95,86,.035) !important; }
+body.light-mode.portal-view.faculty-dashboard .gradebook-card .data-table tbody tr:hover td,
+body.light-mode.portal-view .data-table tbody tr:hover td { background:rgba(166,95,86,.075) !important; color:#352d28 !important; }
+body.light-mode.portal-view.faculty-dashboard .gradebook-card .gradebook-empty strong { color:#38312c; }
+body.light-mode.portal-view.faculty-dashboard .gradebook-card .gradebook-empty span { color:#766c66; }
+.print-header { display:none; }
+body.light-mode.portal-view .print-header { display:none; }
+body.light-mode.portal-view .topic-status-badge { color:#554a44; }
+body.light-mode.portal-view .topic-status-badge.completed { color:#26734e; background:#e9f5ed; border-color:#c6e5d0; }
+body.light-mode.portal-view .topic-status-badge.failed { color:#a34440; background:#fbeceb; border-color:#efd0cd; }
+body.light-mode.portal-view .topic-status-badge.locked { color:#6c625c; background:#f0ece8; border-color:#ded6d0; }
+body.light-mode.portal-view .card:not(.gradebook-card) { color:#38312c; }
+body.light-mode.portal-view .tabs { border-color:rgba(75,55,44,.14); }
+body.light-mode.portal-view .tab-btn { color:#71665f; }
+body.light-mode.portal-view .tab-btn.active { color:#8b5048; border-color:#a65f56; }
+body.light-mode.portal-view .study-tips-panel,
+body.light-mode.portal-view .slide-panel,
+body.light-mode.portal-view .topic-summary-body,
+body.light-mode.portal-view .presentation-card { color:#4f4741; background:#fff; border-color:rgba(75,55,44,.12); }
+body.light-mode.portal-view .study-tip-card { color:#514943; background:#faf7f4; border-color:rgba(75,55,44,.11); }
+body.light-mode.portal-view .question-card { color:#39322d; background:#fff; border-color:rgba(75,55,44,.13); }
+body.light-mode.portal-view .question-text { color:#302a26; }
+body.light-mode.portal-view .option-item { color:#514943; background:#faf7f4; border-color:rgba(75,55,44,.12); }
+body.light-mode.portal-view .report-actions .btn-success { color:#fff !important; background:#2e6b50 !important; border-color:#2e6b50 !important; }
+
+@media print {
+  .print-header { display:block !important; }
+  body.light-mode.portal-view .print-header { display:block !important; }
+}

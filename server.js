@@ -67,6 +67,7 @@ function getInitialDB() {
     },
     settings: { passingPercentage: 50 },
     users: [],
+    sessions: [],
     // Topics start EMPTY - Professor uploads topics and materials
     topics: [],
     // Submissions start EMPTY
@@ -164,6 +165,11 @@ async function loadDB() {
     }
   }
 
+  const hadSessionsArray = Array.isArray(db.sessions);
+  if (!hadSessionsArray) db.sessions = [];
+  const now = Date.now();
+  db.sessions = db.sessions.filter(session => session?.tokenHash && session.expiresAt > now);
+
   // Remove untouched demo accounts from existing databases; keep actual registrations.
   const demoStudents = new Map([
     ['usr_stu_1', ['Juan', 'Dela Cruz', 'TUPT-23-1096']],
@@ -185,11 +191,14 @@ async function loadDB() {
   db.submissions = db.submissions.filter(submission => registeredUserIds.has(submission.userId));
   const hasUnmarkedRegisteredStudents = db.users.some(user => user.role === 'student' && !user.registeredAt);
   const hasUnmarkedEnrollment = db.users.some(user => user.role === 'student' && user.enrollmentStatus !== 'enrolled');
-  const hasLegacyFacultyRoles = db.users.some(user => user.role === 'faculty' && String(user.idNumber || '').toUpperCase() !== ADMIN_ID);
+  const hasAdminRoleMigration = db.users.some(user => {
+    const isPrimaryAdmin = String(user.idNumber || '').trim().toUpperCase() === ADMIN_ID;
+    return isPrimaryAdmin ? user.role !== 'admin' : user.role === 'admin';
+  });
   let passwordsMigrated = false;
   for (const user of db.users) {
-    if (String(user.idNumber || '').toUpperCase() === ADMIN_ID) user.role = 'faculty';
-    else if (user.role === 'faculty') user.role = 'student';
+    if (String(user.idNumber || '').trim().toUpperCase() === ADMIN_ID) user.role = 'admin';
+    else if (user.role === 'admin') user.role = 'student';
     if (user.role === 'student' && !user.registeredAt) {
       user.registeredAt = user.privacyAgreedAt || new Date().toISOString();
     }
@@ -203,7 +212,7 @@ async function loadDB() {
     }
   }
   if (db.users.length !== userCountBeforeDemoCleanup || db.submissions.length !== submissionCountBeforeCleanup ||
-      hasUnmarkedRegisteredStudents || hasUnmarkedEnrollment || hasLegacyFacultyRoles || passwordsMigrated) await saveDB();
+      hasUnmarkedRegisteredStudents || hasUnmarkedEnrollment || hasAdminRoleMigration || passwordsMigrated || !hadSessionsArray) await saveDB();
 
   // Backfill application settings for databases created before admin settings existed.
   if (!db.settings) {
@@ -249,7 +258,7 @@ function saveDB() {
 }
 
 // Active sessions: token -> user
-const sessions = new Map();
+const activeQuizAssignments = new Map();
 const ADMIN_ID = 'TUPT-23-1096';
 
 function hasFacultyAccess(user) {
@@ -260,17 +269,21 @@ function hasFacultyAccess(user) {
 }
 
 function effectiveRole(user) {
-  return hasFacultyAccess(user) ? 'faculty' : user.role;
+  if (String(user?.idNumber || '').trim().toUpperCase() === ADMIN_ID) return 'admin';
+  return user?.role === 'faculty' ? 'faculty' : 'student';
 }
 
 function createSession(user) {
   const token = 'tok_' + crypto.randomBytes(24).toString('hex');
-  sessions.set(token, {
+  const session = {
+    tokenHash: crypto.createHash('sha256').update(token).digest('hex'),
     userId: user.id,
-    role: user.role,
-    idNumber: user.idNumber,
-    createdAt: Date.now()
-  });
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000
+  };
+  db.sessions = (db.sessions || []).filter(existing => existing.expiresAt > Date.now());
+  db.sessions.push(session);
+  saveDB();
   return token;
 }
 
@@ -278,7 +291,8 @@ function authenticate(req) {
   const authHeader = req.headers['authorization'] || '';
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
-    const session = sessions.get(token);
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const session = (db.sessions || []).find(item => item.tokenHash === tokenHash && item.expiresAt > Date.now());
     if (session) {
       const user = db.users.find(u => u.id === session.userId);
       if (user) return user;
@@ -486,6 +500,7 @@ function computeStudentProgress(studentId) {
       latestPassed,
       bestScore: topicSubs.reduce((max, s) => s.score > max ? s.score : max, 0),
       totalQuestions: topic.quizQuestions ? topic.quizQuestions.length : 0,
+      maxRetakes: Number(topic.quizSettings?.maxRetakes ?? -1),
       latestAttempt
     });
 
@@ -561,7 +576,7 @@ const server = http.createServer(async (req, res) => {
           return sendJson(res, 400, { success: false, message: 'Student / Faculty ID and password are required.' });
         }
 
-        const user = db.users.find(u => u.idNumber && u.idNumber.toUpperCase() === searchId);
+        const user = db.users.find(u => String(u.idNumber || '').trim().toUpperCase() === searchId);
 
         if (!user || !(await verifyPassword(password, user.password))) {
           return sendJson(res, 401, {
@@ -570,8 +585,8 @@ const server = http.createServer(async (req, res) => {
           });
         }
 
-        if (String(user.idNumber || '').trim().toUpperCase() === ADMIN_ID && user.role !== 'faculty') {
-          user.role = 'faculty';
+        if (String(user.idNumber || '').trim().toUpperCase() === ADMIN_ID && user.role !== 'admin') {
+          user.role = 'admin';
           saveDB();
         }
 
@@ -595,6 +610,7 @@ const server = http.createServer(async (req, res) => {
       if (pathname === '/api/auth/register' && method === 'POST') {
         const body = await parseBody(req);
         const { idNumber, password, firstName, lastName, privacyAgreed } = body;
+        const requestedRole = body.requestedRole === 'faculty' ? 'faculty' : 'student';
 
         const cleanId = (idNumber || '').trim().toUpperCase();
         const cleanFirst = (firstName || '').trim();
@@ -620,7 +636,7 @@ const server = http.createServer(async (req, res) => {
           return sendJson(res, 400, { success: false, message: 'You must agree to the Data Privacy Notice to register.' });
         }
 
-        const existingUser = db.users.find(u => u.idNumber && u.idNumber.toUpperCase() === cleanId);
+        const existingUser = db.users.find(u => String(u.idNumber || '').trim().toUpperCase() === cleanId);
         if (existingUser) {
           return sendJson(res, 409, { success: false, message: 'This ID is already registered. Please log in instead.' });
         }
@@ -629,7 +645,8 @@ const server = http.createServer(async (req, res) => {
           id: 'usr_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
           idNumber: cleanId,
           password: await hashPassword(cleanPass),
-          role: cleanId === ADMIN_ID ? 'faculty' : 'student',
+          role: cleanId === ADMIN_ID ? 'admin' : 'student',
+          ...(cleanId !== ADMIN_ID && requestedRole === 'faculty' ? { facultyRequestStatus: 'pending' } : {}),
           firstName: cleanFirst,
           lastName: cleanLast,
           privacyAgreed: true,
@@ -659,6 +676,35 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
+      // Faculty roster and role approval controls.
+      if (pathname === '/api/users' && method === 'GET') {
+        const requester = authenticate(req);
+        if (!hasFacultyAccess(requester)) return sendJson(res, 403, { success: false, message: 'Faculty authorization required.' });
+        return sendJson(res, 200, { success: true, users: db.users.map(user => ({
+          id: user.id, idNumber: user.idNumber, firstName: user.firstName, lastName: user.lastName,
+          role: effectiveRole(user), facultyRequestStatus: user.facultyRequestStatus || null,
+          registeredAt: user.registeredAt || null
+        })) });
+      }
+      const userRoleMatch = pathname.match(/^\/api\/users\/([^/]+)\/role$/);
+      if (userRoleMatch && method === 'PUT') {
+        const requester = authenticate(req);
+        if (!hasFacultyAccess(requester)) return sendJson(res, 403, { success: false, message: 'Faculty authorization required.' });
+        const target = db.users.find(user => user.id === decodeURIComponent(userRoleMatch[1]));
+        if (!target) return sendJson(res, 404, { success: false, message: 'User not found.' });
+        if (String(target.idNumber || '').trim().toUpperCase() === ADMIN_ID) return sendJson(res, 400, { success: false, message: 'The primary administrator role cannot be changed.' });
+        const body = await parseBody(req);
+        if (!['student', 'faculty'].includes(body.role)) return sendJson(res, 400, { success: false, message: 'Choose Student or Faculty.' });
+        if (body.role === 'faculty' && target.facultyRequestStatus === 'pending' && body.confirm !== true) {
+          return sendJson(res, 400, { success: false, message: 'Confirm this faculty request before approval.' });
+        }
+        target.role = body.role;
+        if (body.role === 'faculty') target.facultyRequestStatus = 'approved';
+        else if (target.facultyRequestStatus) target.facultyRequestStatus = 'declined';
+        await saveDB();
+        return sendJson(res, 200, { success: true, user: { id: target.id, role: target.role, facultyRequestStatus: target.facultyRequestStatus || null } });
+      }
+
       // 3. Auth: Current User Check
       if (pathname === '/api/auth/me' && method === 'GET') {
         const user = authenticate(req);
@@ -677,6 +723,17 @@ const server = http.createServer(async (req, res) => {
             privacyAgreedAt: user.privacyAgreedAt
           }
         });
+      }
+
+      if (pathname === '/api/auth/logout' && method === 'POST') {
+        const authHeader = req.headers['authorization'] || '';
+        const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : '';
+        if (token) {
+          const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+          db.sessions = (db.sessions || []).filter(session => session.tokenHash !== tokenHash);
+          await saveDB();
+        }
+        return sendJson(res, 200, { success: true });
       }
 
       // 4. Subject Info (Get & Update)
@@ -744,6 +801,7 @@ const server = http.createServer(async (req, res) => {
             latestPassed: prog ? prog.latestPassed : false,
             bestScore: prog ? prog.bestScore : 0,
             totalQuestions: prog ? prog.totalQuestions : 0,
+            maxRetakes: prog ? prog.maxRetakes : Number(t.quizSettings?.maxRetakes ?? -1),
             hasPresentation: !!(t.presentation && (t.presentation.fileUrl || t.presentation.title)),
             slidesCount: t.slides ? t.slides.length : 0
           };
@@ -785,10 +843,11 @@ const server = http.createServer(async (req, res) => {
               order: topic.order,
               title: topic.title,
               lessonText: topic.lessonText || '',
+              ...(hasFacultyAccess(user) ? { quizSourceText: topic.quizSourceText || '' } : {}),
               presentation: topic.presentation || { title: '', fileUrl: '' },
               slides: topic.slides || [],
               summary: topic.summary || '',
-              quizSettings: { timeLimitMinutes: 10, maxQuestions: 20, ...(topic.quizSettings || {}), passingPercentage: Number(db.settings.passingPercentage) || 50 },
+              quizSettings: { timeLimitMinutes: 10, maxQuestions: 20, maxRetakes: -1, ...(topic.quizSettings || {}), passingPercentage: Number(db.settings.passingPercentage) || 50 },
               questionCount: topic.quizQuestions ? topic.quizQuestions.length : 0
             }
           });
@@ -839,8 +898,16 @@ const server = http.createServer(async (req, res) => {
         }
         const body = await parseBody(req);
         const requestedTimeLimit = Number(body.quizSettings?.timeLimitMinutes ?? 10);
+        const requestedMaxQuestions = Number(body.quizSettings?.maxQuestions ?? 20);
+        const requestedMaxRetakes = Number(body.quizSettings?.maxRetakes ?? 2);
         if (!Number.isInteger(requestedTimeLimit) || requestedTimeLimit < 1 || requestedTimeLimit > 180) {
           return sendJson(res, 400, { success: false, message: 'Quiz time limit must be between 1 and 180 minutes.' });
+        }
+        if (!Number.isInteger(requestedMaxQuestions) || requestedMaxQuestions < 1 || requestedMaxQuestions > 50) {
+          return sendJson(res, 400, { success: false, message: 'Quiz item count must be between 1 and 50.' });
+        }
+        if (!Number.isInteger(requestedMaxRetakes) || requestedMaxRetakes < -1 || requestedMaxRetakes > 20) {
+          return sendJson(res, 400, { success: false, message: 'Allowed retakes must be unlimited or between 0 and 20.' });
         }
         const newOrder = db.topics.length + 1;
         const newTopic = {
@@ -848,6 +915,7 @@ const server = http.createServer(async (req, res) => {
           order: newOrder,
           title: body.title || `Topic ${newOrder}: System Administration and Maintenance`,
           lessonText: body.lessonText || '<p>Enter System Administration and Maintenance course content here...</p>',
+          quizSourceText: typeof body.quizSourceText === 'string' ? body.quizSourceText.slice(0, 100000) : '',
           presentation: {
             title: body.presentationTitle || (body.presentation ? body.presentation.title : ''),
             fileUrl: body.presentationFileUrl || (body.presentation ? body.presentation.fileUrl : ''),
@@ -859,8 +927,8 @@ const server = http.createServer(async (req, res) => {
           summary: body.summary !== undefined ? body.summary : '<p>Summary of system administration concepts, maintenance procedures, and troubleshooting practices.</p>',
           quizSettings: {
             timeLimitMinutes: requestedTimeLimit,
-            maxQuestions: 20,
-            ...(body.quizSettings || {}),
+            maxQuestions: requestedMaxQuestions,
+            maxRetakes: requestedMaxRetakes,
             passingPercentage: Number(db.settings.passingPercentage) || 50
           },
           quizQuestions: []
@@ -939,22 +1007,39 @@ const server = http.createServer(async (req, res) => {
               });
             }
 
+            const studentSubs = db.submissions.filter(s => s.userId === user.id && s.topicId === topicId);
+            const maxRetakes = Number(topic.quizSettings?.maxRetakes ?? -1);
+            if (maxRetakes >= 0 && studentSubs.length >= maxRetakes + 1) {
+              return sendJson(res, 403, {
+                success: false,
+                retakeLimitReached: true,
+                attemptsUsed: studentSubs.length,
+                maxRetakes,
+                message: `You have used all ${maxRetakes} allowed retake${maxRetakes === 1 ? '' : 's'} for this quiz.`
+              });
+            }
+
+            const questionLimit = Math.max(1, Number(topic.quizSettings?.maxQuestions) || 20);
             const sanitizedQuestions = (topic.quizQuestions || []).map(q => ({
               id: q.id,
               question: q.question,
               options: q.options
-            }));
+            })).sort(() => Math.random() - 0.5).slice(0, questionLimit);
+            activeQuizAssignments.set(`${user.id}:${topicId}`, {
+              questionIds: sanitizedQuestions.map(question => question.id),
+              expiresAt: Date.now() + 4 * 60 * 60 * 1000
+            });
 
-            const studentSubs = db.submissions.filter(s => s.userId === user.id && s.topicId === topicId);
             const latestSub = studentSubs[studentSubs.length - 1] || null;
 
             return sendJson(res, 200, {
               success: true,
               topicTitle: topic.title,
-              quizSettings: { timeLimitMinutes: 10, maxQuestions: 20, ...(topic.quizSettings || {}), passingPercentage: Number(db.settings.passingPercentage) || 50 },
+              quizSettings: { timeLimitMinutes: 10, maxQuestions: 20, maxRetakes: -1, ...(topic.quizSettings || {}), passingPercentage: Number(db.settings.passingPercentage) || 50 },
               questions: sanitizedQuestions,
               totalQuestions: sanitizedQuestions.length,
               previousAttemptsCount: studentSubs.length,
+              retakesRemaining: maxRetakes < 0 ? null : Math.max(0, maxRetakes - Math.max(0, studentSubs.length - 1)),
               latestAttempt: latestSub
             });
           }
@@ -962,7 +1047,7 @@ const server = http.createServer(async (req, res) => {
           return sendJson(res, 200, {
             success: true,
             topicTitle: topic.title,
-            quizSettings: { timeLimitMinutes: 10, maxQuestions: 20, ...(topic.quizSettings || {}), passingPercentage: Number(db.settings.passingPercentage) || 50 },
+              quizSettings: { timeLimitMinutes: 10, maxQuestions: 20, maxRetakes: -1, ...(topic.quizSettings || {}), passingPercentage: Number(db.settings.passingPercentage) || 50 },
             questions: topic.quizQuestions || [],
             isFaculty: true
           });
@@ -977,12 +1062,21 @@ const server = http.createServer(async (req, res) => {
           const body = await parseBody(req);
           if (body.quizSettings) {
             const timeLimitMinutes = Number(body.quizSettings.timeLimitMinutes);
+            const maxQuestions = Number(body.quizSettings.maxQuestions);
+            const maxRetakes = Number(body.quizSettings.maxRetakes ?? -1);
             if (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1 || timeLimitMinutes > 180) {
               return sendJson(res, 400, { success: false, message: 'Quiz time limit must be between 1 and 180 minutes.' });
             }
+            if (!Number.isInteger(maxQuestions) || maxQuestions < 1 || maxQuestions > 50) {
+              return sendJson(res, 400, { success: false, message: 'Quiz item count must be between 1 and 50.' });
+            }
+            if (!Number.isInteger(maxRetakes) || maxRetakes < -1 || maxRetakes > 20) {
+              return sendJson(res, 400, { success: false, message: 'Allowed retakes must be unlimited or between 0 and 20.' });
+            }
             topic.quizSettings = {
               timeLimitMinutes,
-              maxQuestions: Number(body.quizSettings.maxQuestions) || 20,
+              maxQuestions,
+              maxRetakes,
               passingPercentage: Number(db.settings.passingPercentage) || 50
             };
           }
@@ -1136,10 +1230,34 @@ const server = http.createServer(async (req, res) => {
 
         const body = await parseBody(req);
         const studentAnswers = body.answers && typeof body.answers === 'object' && !Array.isArray(body.answers) ? body.answers : {};
+        const previousAttempts = db.submissions.filter(s => s.userId === user.id && s.topicId === topicId).length;
+        const maxRetakes = Number(topic.quizSettings?.maxRetakes ?? -1);
+        if (maxRetakes >= 0 && previousAttempts >= maxRetakes + 1) {
+          return sendJson(res, 403, {
+            success: false,
+            retakeLimitReached: true,
+            attemptsUsed: previousAttempts,
+            maxRetakes,
+            message: `You have used all ${maxRetakes} allowed retake${maxRetakes === 1 ? '' : 's'} for this quiz.`
+          });
+        }
 
         let score = 0;
-        const total = (topic.quizQuestions || []).length;
-        for (const q of (topic.quizQuestions || [])) {
+        const requestedQuestionIds = Array.isArray(body.questionIds) ? [...new Set(body.questionIds.map(String))] : [];
+        const questionLimit = Math.max(1, Number(topic.quizSettings?.maxQuestions) || 20);
+        const assignmentKey = `${user.id}:${topicId}`;
+        const assignment = activeQuizAssignments.get(assignmentKey);
+        if (!assignment || assignment.expiresAt < Date.now() || !requestedQuestionIds.length ||
+            requestedQuestionIds.length > questionLimit || requestedQuestionIds.length !== assignment.questionIds.length ||
+            requestedQuestionIds.some(id => !assignment.questionIds.includes(id))) {
+          return sendJson(res, 400, { success: false, message: `Submit between 1 and ${questionLimit} quiz items.` });
+        }
+        const submittedQuestions = requestedQuestionIds.map(id => (topic.quizQuestions || []).find(question => question.id === id));
+        if (submittedQuestions.some(question => !question)) {
+          return sendJson(res, 400, { success: false, message: 'Quiz contains an invalid question.' });
+        }
+        const total = submittedQuestions.length;
+        for (const q of submittedQuestions) {
           const selected = studentAnswers[q.id];
           const answerIndex = Number(selected);
           const isCorrect = selected !== undefined && selected !== null && Number.isInteger(answerIndex) &&
@@ -1151,8 +1269,7 @@ const server = http.createServer(async (req, res) => {
         const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
         const passed = percentage >= passingThreshold;
 
-        const priorAttempts = db.submissions.filter(s => s.userId === user.id && s.topicId === topicId).length;
-        const newAttemptNumber = priorAttempts + 1;
+        const newAttemptNumber = previousAttempts + 1;
 
         const submissionRecord = {
           id: 'sub_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
@@ -1167,6 +1284,7 @@ const server = http.createServer(async (req, res) => {
         };
 
         db.submissions.push(submissionRecord);
+        activeQuizAssignments.delete(assignmentKey);
         saveDB();
 
         const nextTopic = db.topics.find(t => t.order === topic.order + 1);

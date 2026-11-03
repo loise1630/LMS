@@ -64,66 +64,24 @@ const Faculty = {
     App.showModal({
       title: 'Upload Course Topic',
       body: `
-        <div style="font-size: 0.88rem; color: #64748b; margin-bottom: 1.25rem;">
-          Upload a PDF or PowerPoint to extract its content and automatically prepare a related quiz. You can use the generated questions or upload your own quiz file.
-        </div>
-
-        <!-- Section 1: Topic Title -->
-        <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">1. Topic Title</label>
-          <input type="text" id="modal-topic-title" class="form-control" placeholder="e.g. Topic 1: Operating System Installation" />
-        </div>
-
-        <!-- Section 2: Upload Material & Image OCR -->
-        <div class="form-group" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem;">
-          <label class="form-label" style="font-weight: 700; display: flex; justify-content: space-between; align-items: center;">
-            <span>2. Upload Material / Photo (PDF, PPTX, TXT, PNG, JPG)</span>
-            <span style="font-size: 0.75rem; color: #0071e3; font-weight: 600;">PDF / PPTX text extraction</span>
-          </label>
-          
-          <input type="file" id="modal-material-input" class="form-control" accept="image/*,.pdf,.txt,.pptx" onchange="Faculty.handleMaterialFileSelect(event)" style="background: white;" />
-          
-          <small>Maximum file size: 20 MB.</small>
-          <!-- Image OCR Preview & Status Area -->
-          <div id="ocr-preview-container" style="display: none; margin-top: 0.85rem; padding: 0.75rem; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <div style="display: flex; gap: 1rem; align-items: center;">
-              <img id="ocr-image-thumb" src="" alt="Material Preview" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;" />
-              <div style="flex: 1;">
-                <div id="ocr-filename" style="font-weight: 700; font-size: 0.88rem; color: #0f172a;">filename.png</div>
-                <div id="ocr-status-text" style="font-size: 0.78rem; color: #64748b; margin-top: 0.15rem;">Photo ready for OCR scanning</div>
-                <div id="ocr-estimate-text" style="font-size: 0.75rem; color: #0071e3; margin-top: 0.2rem;"></div>
-                <div class="ocr-progress-bar" id="ocr-progress-bar-container" style="display: none;">
-                  <div class="ocr-progress-fill" id="ocr-progress-fill"></div>
-                </div>
-              </div>
-              <button type="button" class="btn btn-primary btn-sm" id="btn-run-ocr" onclick="Faculty.runOCR()">
-                 Scan Photo (OCR)
-              </button>
+        <div class="upload-topic-form" style="display:grid;gap:1rem">
+          <div style="padding:.25rem 0 .35rem"><span class="upload-topic-kicker">New learning module</span><p class="upload-topic-description">Add a topic, attach its learning material, and set the quiz rules.</p></div>
+          <div class="upload-topic-step" style="display:grid;grid-template-columns:42px minmax(0,1fr);gap:.85rem;align-items:start;padding:1rem;border-radius:14px">
+            <span class="upload-topic-step-number">1</span>
+            <div><label class="form-label" for="modal-topic-title">Topic title</label><input type="text" id="modal-topic-title" class="form-control" placeholder="e.g. Operating System Installation" /><small>Use a short, clear name students can recognize.</small></div>
+          </div>
+          <div class="upload-topic-step" style="display:grid;grid-template-columns:42px minmax(0,1fr);gap:.85rem;align-items:start;padding:1rem;border-radius:14px">
+            <span class="upload-topic-step-number">2</span>
+            <div style="min-width:0"><label class="form-label" for="modal-material-input">Learning material</label><input type="file" id="modal-material-input" class="form-control" accept="image/*,.pdf,.txt,.pptx" onchange="Faculty.handleMaterialFileSelect(event)" /><small>PDF, PPTX, TXT, or image · maximum 20 MB. Material is used to prepare a quiz.</small>
+              <div id="ocr-preview-container" style="display:none;margin-top:.85rem;padding:.75rem;background:#faf9f8;border-radius:10px;border:1px solid #e8e3e1"><div style="display:flex;gap:.8rem;align-items:center"><img id="ocr-image-thumb" src="" alt="Material preview" style="width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0" /><div style="flex:1;min-width:0"><div id="ocr-filename" style="font-weight:700;font-size:.85rem;color:#0f172a;overflow-wrap:anywhere">filename.png</div><div id="ocr-status-text" style="font-size:.76rem;color:#64748b;margin-top:.15rem">Preparing material</div><div id="ocr-estimate-text" style="font-size:.74rem;color:#a65f56;margin-top:.2rem"></div><div class="ocr-progress-bar" id="ocr-progress-bar-container" style="display:none"><div class="ocr-progress-fill" id="ocr-progress-fill"></div></div></div><button type="button" class="btn btn-primary btn-sm" id="btn-run-ocr" onclick="Faculty.runOCR()">Scan image</button></div></div>
             </div>
           </div>
-        </div>
-
-        <!-- Extracted content is split into learner-facing slides when published. -->
-        <div class="form-group">
-          <label class="form-label" style="font-weight: 700; display: flex; justify-content: space-between;">
-            <span>3. Extracted Course Content</span>
-            <span style="font-size: 0.75rem; color: #64748b;">(Extracted from file or editable)</span>
-          </label>
-          <textarea id="modal-topic-lesson" class="form-control" style="min-height: 110px; font-size: 0.85rem;" placeholder="Concepts, administration procedures, commands, and troubleshooting steps extracted from the material..."></textarea>
-        </div>
-
-
-
-        <div class="form-group" style="padding: 1rem; background: #f8fafc; border-radius: 10px;">
-          <strong>Quiz option</strong>
-          <div class="form-group" style="margin-top:.75rem;margin-bottom:.5rem;">
-            <label class="form-label" for="modal-topic-timer">Quiz time limit (minutes)</label>
-            <input type="number" id="modal-topic-timer" class="form-control" value="10" min="1" max="180" required />
-            <small>Students will be automatically submitted when time runs out.</small>
+          <div class="upload-topic-step" style="display:grid;grid-template-columns:42px minmax(0,1fr);gap:.85rem;align-items:start;padding:1rem;border-radius:14px">
+            <span class="upload-topic-step-number">3</span>
+            <div style="width:100%"><strong style="display:block;margin-bottom:.75rem">Quiz settings</strong><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem"><div><label class="form-label" for="modal-topic-timer">Time duration</label><select id="modal-topic-timer" class="form-control">${[5,10,15,20,30,45,60,90,120,180].map(minutes => `<option value="${minutes}" ${minutes === 10 ? 'selected' : ''}>${minutes} minutes</option>`).join('')}</select></div><div><label class="form-label" for="modal-topic-question-count">Number of items</label><select id="modal-topic-question-count" class="form-control" onchange="Faculty.updateStagedQuizCount()">${[5,10,15,20].map(count => `<option value="${count}" ${count === 10 ? 'selected' : ''}>${count} items</option>`).join('')}</select></div><div><label class="form-label" for="modal-topic-retakes">Allowed retakes</label><select id="modal-topic-retakes" class="form-control"><option value="0">No retakes</option>${[1,2,3,5,10].map(count => `<option value="${count}" ${count === 2 ? 'selected' : ''}>${count} ${count === 1 ? 'retake' : 'retakes'}</option>`).join('')}<option value="-1">Unlimited</option></select></div></div><small style="display:block;margin-top:.55rem">Retakes are counted after the initial attempt. Students are submitted automatically when time runs out.</small>
+              <div style="margin-top:.9rem;padding:.8rem;border-radius:10px;background:#faf9f8"><label style="display:flex;align-items:flex-start;gap:.5rem"><input id="quiz-choice-generated" type="radio" name="quiz-choice" value="generated" disabled onchange="Faculty.quizChoice='generated'" /><span><strong>Generate quiz from material</strong><small id="generated-quiz-count" style="display:block">waiting for uploaded material</small></span></label><label style="display:flex;align-items:flex-start;gap:.5rem;margin-top:.65rem"><input id="quiz-choice-uploaded" type="radio" name="quiz-choice" value="uploaded" checked onchange="Faculty.quizChoice='uploaded'" /><span><strong>Upload my own quiz</strong><small style="display:block">You can upload its question file after creating the topic.</small></span></label><div id="generated-quiz-preview" style="display:none;max-height:180px;overflow:auto;margin-top:.75rem;padding:.75rem;background:white;border:1px solid #e2e8f0;border-radius:8px"></div></div>
+            </div>
           </div>
-          <label style="display:block; margin-top:.65rem;"><input id="quiz-choice-generated" type="radio" name="quiz-choice" value="generated" disabled onchange="Faculty.quizChoice='generated'" /> Use generated quiz (<span id="generated-quiz-count">waiting for uploaded material</span>)</label>
-          <label style="display:block; margin-top:.5rem;"><input id="quiz-choice-uploaded" type="radio" name="quiz-choice" value="uploaded" checked onchange="Faculty.quizChoice='uploaded'" /> Upload my own quiz file after creating the topic</label>
-          <div id="generated-quiz-preview" style="display:none; max-height:180px; overflow:auto; margin-top:.75rem; padding:.75rem; background:white; border:1px solid #e2e8f0; border-radius:8px;"></div>
         </div>
       `,
       confirmText: ' Publish Topic & Quiz to Students',
@@ -262,11 +220,9 @@ const Faculty = {
       this.stagedMaterialText = '';
       this.stagedQuestions = [];
       const preview = document.getElementById('ocr-preview-container');
-      const lesson = document.getElementById('modal-topic-lesson');
       const generatedRadio = document.getElementById('quiz-choice-generated');
       const generatedCount = document.getElementById('generated-quiz-count');
       if (preview) preview.style.display = 'none';
-      if (lesson) lesson.value = '';
       if (generatedRadio) { generatedRadio.checked = false; generatedRadio.disabled = true; }
       if (generatedCount) generatedCount.textContent = 'waiting for an upload within the 20 MB limit';
       App.toast('The selected material exceeds the 20 MB upload limit. Please choose a smaller file.', 'warning');
@@ -295,10 +251,6 @@ const Faculty = {
     previewContainer.style.display = 'block';
     filenameEl.textContent = file.name;
     this.stagedMaterialText = '';
-    const lessonInput = document.getElementById('modal-topic-lesson');
-    if (lessonInput && /^Overview of .* in .+\.$/i.test(lessonInput.value.trim())) {
-      lessonInput.value = '';
-    }
     // Check if image file
     if (file.type.startsWith('image/')) {
       const reader = new FileReader();
@@ -353,8 +305,7 @@ const Faculty = {
           statusText.textContent = `Extracted ${this.stagedMaterialText.length.toLocaleString()} characters from ${extracted.sections} ${extracted.format === 'PDF' ? 'pages' : 'slides'}.${this.pdfOcrWarning ? ` ${this.pdfOcrWarning}` : ''}`;
         }
 
-        if (!this.stagedMaterialText.trim()) throw new Error('No readable text found in this file. Paste the lecture content into the notes box.');
-        if (lessonInput) lessonInput.value = this.stagedMaterialText;
+        if (!this.stagedMaterialText.trim()) throw new Error('No readable text found in this file. Try another file or upload your own quiz.');
         this.generateStagedQuiz();
         this.finishExtractionEstimate();
       } catch (error) {
@@ -390,15 +341,16 @@ const Faculty = {
 
   generateStagedQuiz() {
     const title = document.getElementById('modal-topic-title')?.value.trim() || this.stagedFileName || '';
-    this.stagedQuestions = QuizGenerator.generateQuestionsFromMaterial(this.stagedMaterialText, 10);
+    const desiredCount = Number(document.getElementById('modal-topic-question-count')?.value) || 10;
+    this.stagedQuestions = QuizGenerator.generateQuestionsFromMaterial(this.stagedMaterialText, desiredCount);
     const generatedRadio = document.getElementById('quiz-choice-generated');
     const generatedCount = document.getElementById('generated-quiz-count');
     const preview = document.getElementById('generated-quiz-preview');
     const escapeHtml = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
     if (generatedCount) {
       generatedCount.textContent = this.stagedQuestions.length
-        ? `${this.stagedQuestions.length} questions from readable definitions in ${title}`
-        : 'not enough clean definitions (need 4+); upload your own quiz file';
+        ? `${this.stagedQuestions.length} source-based quiz questions for ${title}`
+        : 'Not enough clear concepts or actions to make a reliable quiz. Upload a quiz file instead.';
     }
     if (generatedRadio) {
       generatedRadio.disabled = this.stagedQuestions.length < 4;
@@ -417,10 +369,14 @@ const Faculty = {
       this.quizChoice = 'uploaded';
       const uploadedRadio = document.getElementById('quiz-choice-uploaded');
       if (uploadedRadio) uploadedRadio.checked = true;
-      App.toast('Fewer than four clean concepts were found. To avoid a low-quality quiz, upload your own quiz file.', 'warning');
+      App.toast('The material did not contain enough clear facts to make a reliable quiz. Upload your own quiz file instead.', 'warning');
     } else {
       App.toast(`Prepared ${this.stagedQuestions.length} quiz questions from the uploaded material.`, 'success');
     }
+  },
+
+  updateStagedQuizCount() {
+    if (this.stagedMaterialText.trim()) this.generateStagedQuiz();
   },
 
   async runOCR() {
@@ -433,7 +389,6 @@ const Faculty = {
     const progressFill = document.getElementById('ocr-progress-fill');
     const statusText = document.getElementById('ocr-status-text');
     const runOcrBtn = document.getElementById('btn-run-ocr');
-    const lessonInput = document.getElementById('modal-topic-lesson');
 
     if (progressBar) progressBar.style.display = 'block';
     if (runOcrBtn) runOcrBtn.disabled = true;
@@ -447,9 +402,6 @@ const Faculty = {
 
       if (result && result.text) {
         this.stagedMaterialText = result.text;
-        if (lessonInput) {
-          lessonInput.value = result.text;
-        }
         if (statusText) {
           statusText.innerHTML = ` <strong style="color: #166534;">OCR Successful!</strong> Extracted readable text (${result.engine}).`;
         }
@@ -457,7 +409,7 @@ const Faculty = {
         this.generateStagedQuiz();
 
       } else {
-        const message = result?.message || 'No readable text found. Paste the lecture content into the notes box.';
+        const message = result?.message || 'No readable text found. Try another file or upload your own quiz.';
         if (statusText) statusText.textContent = message;
         const generatedCount = document.getElementById('generated-quiz-count');
         if (generatedCount) generatedCount.textContent = 'OCR found no readable text; retry or upload your own quiz.';
@@ -465,7 +417,7 @@ const Faculty = {
       }
     } catch (e) {
       console.error('OCR Error:', e);
-      if (statusText) statusText.textContent = 'OCR could not read this image. Paste the lecture text into the notes box.';
+      if (statusText) statusText.textContent = 'OCR could not read this image. Try another image or upload your own quiz.';
       const generatedCount = document.getElementById('generated-quiz-count');
       if (generatedCount) generatedCount.textContent = 'OCR failed; retry or upload your own quiz.';
     } finally {
@@ -480,10 +432,7 @@ const Faculty = {
 
   async submitNewTopic() {
     const titleInput = document.getElementById('modal-topic-title');
-    const lessonInput = document.getElementById('modal-topic-lesson');
-
     const title = titleInput ? titleInput.value.trim() : '';
-    const lessonText = lessonInput ? lessonInput.value.trim() : '';
     const selectedQuizChoice = document.querySelector('input[name="quiz-choice"]:checked')?.value || 'uploaded';
 
     if (!title) {
@@ -495,8 +444,18 @@ const Faculty = {
       return;
     }
     const timeLimitMinutes = Number(document.getElementById('modal-topic-timer')?.value);
+    const maxQuestions = Number(document.getElementById('modal-topic-question-count')?.value);
+    const maxRetakes = Number(document.getElementById('modal-topic-retakes')?.value);
     if (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1 || timeLimitMinutes > 180) {
       App.toast('Set the quiz time limit from 1 to 180 minutes.', 'warning');
+      return;
+    }
+    if (!Number.isInteger(maxQuestions) || maxQuestions < 1 || maxQuestions > 50) {
+      App.toast('Choose a valid number of quiz items.', 'warning');
+      return;
+    }
+    if (!Number.isInteger(maxRetakes) || maxRetakes < -1 || maxRetakes > 20) {
+      App.toast('Choose a valid number of retakes.', 'warning');
       return;
     }
 
@@ -524,22 +483,18 @@ const Faculty = {
 
     const slides = [];
 
-    // Format HTML lesson text
-    const formattedLesson = lessonText
-      ? lessonText.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('')
-      : '';
-
     try {
       const res = await App.api('/api/topics', {
         method: 'POST',
         body: JSON.stringify({
           title,
-          lessonText: formattedLesson,
+          lessonText: '',
+          quizSourceText: this.stagedMaterialText.slice(0, 100000),
           presentationTitle: fileName,
           presentationFileUrl: fileUrl,
           slides,
           summary: '',
-          quizSettings: { timeLimitMinutes, maxQuestions: 20, passingPercentage: 50 },
+          quizSettings: { timeLimitMinutes, maxQuestions, maxRetakes, passingPercentage: 50 },
           quizQuestions: []
         })
       });
@@ -575,11 +530,11 @@ const Faculty = {
       body: `
         <div class="form-group">
           <label class="form-label">Topic Title</label>
-          <input type="text" id="modal-edit-title" class="form-control" value="${t.title}" />
+          <input type="text" id="modal-edit-title" class="form-control" value="${App.escapeHtml(t.title)}" />
         </div>
         <div class="form-group">
           <label class="form-label">Lesson Content (HTML / Text formatted)</label>
-          <textarea id="modal-edit-lesson" class="form-control" style="min-height: 220px;">${t.lessonText}</textarea>
+          <textarea id="modal-edit-lesson" class="form-control" style="min-height: 220px;">${App.escapeHtml(t.lessonText)}</textarea>
         </div>
       `,
       confirmText: 'Save Lesson',
@@ -610,7 +565,7 @@ const Faculty = {
       body: `
         <div class="form-group">
           <label class="form-label">Topic Summary Content</label>
-          <textarea id="modal-edit-summary" class="form-control" style="min-height: 200px;">${t.summary || ''}</textarea>
+          <textarea id="modal-edit-summary" class="form-control" style="min-height: 200px;">${App.escapeHtml(t.summary || '')}</textarea>
         </div>
       `,
       confirmText: 'Save Summary',
@@ -702,10 +657,10 @@ const Faculty = {
             <button class="btn btn-danger btn-sm" onclick="Faculty.removeSlide(${idx})"> Delete</button>
           </div>
           <div class="form-group">
-            <input type="text" class="form-control" id="slide-title-${idx}" value="${s.title}" placeholder="Slide Heading" />
+            <input type="text" class="form-control" id="slide-title-${idx}" value="${App.escapeHtml(s.title)}" placeholder="Slide Heading" />
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <textarea class="form-control" id="slide-content-${idx}" placeholder="Bullet points or lecture summary">${s.content}</textarea>
+            <textarea class="form-control" id="slide-content-${idx}" placeholder="Bullet points or lecture summary">${App.escapeHtml(s.content)}</textarea>
           </div>
         </div>
       `;
@@ -784,7 +739,7 @@ const Faculty = {
       if (!res.success) return;
 
       const questions = res.questions || [];
-      const settings = res.quizSettings || { timeLimitMinutes: 10, maxQuestions: 20, passingPercentage: 50 };
+      const settings = res.quizSettings || { timeLimitMinutes: 10, maxQuestions: 20, maxRetakes: -1, passingPercentage: 50 };
 
       let qListHtml = '';
       questions.forEach((q, qIdx) => {
@@ -794,7 +749,7 @@ const Faculty = {
           const isCorrect = oIdx === q.correctAnswer;
           optsHtml += `
             <div style="font-size: 0.85rem; padding: 0.25rem 0.5rem; border-radius: 4px; margin-bottom: 2px; ${isCorrect ? 'background: #dcfce7; font-weight: 700; color: #166534;' : ''}">
-              ${letters[oIdx]}) ${opt} ${isCorrect ? ' (Correct Answer)' : ''}
+              ${letters[oIdx]}) ${App.escapeHtml(opt)} ${isCorrect ? ' (Correct Answer)' : ''}
             </div>
           `;
         });
@@ -805,9 +760,9 @@ const Faculty = {
               <span style="font-weight: 700; color: var(--primary);">Question #${qIdx + 1}</span>
               <button class="btn btn-danger btn-sm" onclick="Faculty.deleteQuestion('${topicId}', ${qIdx})"> Delete</button>
             </div>
-            <div style="font-weight: 600; margin-bottom: 0.5rem;">${q.question}</div>
+            <div style="font-weight: 600; margin-bottom: 0.5rem;">${App.escapeHtml(q.question)}</div>
             <div style="margin-left: 0.5rem; margin-bottom: 0.5rem;">${optsHtml}</div>
-            ${q.explanation ? `<div style="font-size: 0.8rem; color: var(--gray-600); background: var(--gray-50); padding: 0.35rem 0.5rem; border-radius: 4px;"> ${q.explanation}</div>` : ''}
+            ${q.explanation ? `<div style="font-size: 0.8rem; color: var(--gray-600); background: var(--gray-50); padding: 0.35rem 0.5rem; border-radius: 4px;"> ${App.escapeHtml(q.explanation)}</div>` : ''}
           </div>
         `;
       });
@@ -829,7 +784,7 @@ const Faculty = {
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--gray-200); padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
             <div>
               <span class="topic-number">Faculty Quiz Controller</span>
-              <h2 style="font-size: 1.35rem; font-weight: 800;">${res.topicTitle} - Quiz Configuration</h2>
+              <h2 style="font-size: 1.35rem; font-weight: 800;">${App.escapeHtml(res.topicTitle)} - Quiz Configuration</h2>
               <p style="font-size: 0.85rem; color: var(--gray-600);">
                 Manage question bank, timer duration, and passing threshold.
               </p>
@@ -839,7 +794,7 @@ const Faculty = {
           <!-- Quiz Settings Form -->
           <div style="background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
             <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--gray-800);"> Assessment Rules & Constraints</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
               <div class="form-group" style="margin-bottom: 0;">
                 <label class="form-label">Time Limit (Minutes)</label>
                 <input type="number" id="setting-timer" class="form-control" value="${settings.timeLimitMinutes || 10}" min="1" max="180" />
@@ -847,6 +802,14 @@ const Faculty = {
               <div class="form-group" style="margin-bottom: 0;">
                 <label class="form-label">Max Questions to Serve</label>
                 <input type="number" id="setting-max" class="form-control" value="${settings.maxQuestions || 20}" min="1" max="50" />
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Allowed Retakes</label>
+                <select id="setting-retakes" class="form-control">
+                  <option value="0" ${Number(settings.maxRetakes) === 0 ? 'selected' : ''}>No retakes</option>
+                  ${[1,2,3,5,10].map(count => `<option value="${count}" ${Number(settings.maxRetakes) === count ? 'selected' : ''}>${count} ${count === 1 ? 'retake' : 'retakes'}</option>`).join('')}
+                  <option value="-1" ${Number(settings.maxRetakes ?? -1) < 0 ? 'selected' : ''}>Unlimited</option>
+                </select>
               </div>
               <div class="form-group" style="margin-bottom: 0;">
                 <label class="form-label">Course Passing Standard</label>
@@ -879,10 +842,10 @@ const Faculty = {
       const response = await App.api(`/api/topics/${topicId}`);
       if (!response.success) throw new Error('Could not load the uploaded topic material.');
       const html = new DOMParser().parseFromString(response.topic.lessonText || '', 'text/html');
-      const materialText = html.body.textContent || '';
+      const materialText = response.topic.quizSourceText || html.body.textContent || '';
       const questions = QuizGenerator.generateQuestionsFromMaterial(materialText, 10);
       if (questions.length < 4) {
-        App.toast('The stored material does not contain four clean definitions. Upload a clearer source or use Upload Quiz File.', 'warning');
+        App.toast('The stored material does not contain enough clear concepts or actions for a reliable quiz. Use Upload Quiz File instead.', 'warning');
         return;
       }
       if (!confirm(`Replace this topic's current quiz with ${questions.length} questions generated from its uploaded material?`)) return;
@@ -902,6 +865,7 @@ const Faculty = {
   async saveQuizSettings(topicId) {
     const timeLimitMinutes = parseInt(document.getElementById('setting-timer').value, 10);
     const maxQuestions = parseInt(document.getElementById('setting-max').value, 10);
+    const maxRetakes = parseInt(document.getElementById('setting-retakes').value, 10);
     const passingPercentage = Number(App.state.settings?.passingPercentage) || 50;
 
     if (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1 || timeLimitMinutes > 180) {
@@ -912,17 +876,21 @@ const Faculty = {
       App.toast('Set the question limit from 1 to 50.', 'warning');
       return;
     }
+    if (!Number.isInteger(maxRetakes) || maxRetakes < -1 || maxRetakes > 20) {
+      App.toast('Choose a valid number of retakes.', 'warning');
+      return;
+    }
 
     try {
       const res = await App.api(`/api/quizzes/${topicId}`, {
         method: 'POST',
         body: JSON.stringify({
-          quizSettings: { timeLimitMinutes, maxQuestions, passingPercentage }
+          quizSettings: { timeLimitMinutes, maxQuestions, maxRetakes, passingPercentage }
         })
       });
       if (res.success) {
         if (App.state.currentTopic?.id === topicId) {
-          App.state.currentTopic.quizSettings = { ...(App.state.currentTopic.quizSettings || {}), timeLimitMinutes };
+          App.state.currentTopic.quizSettings = { ...(App.state.currentTopic.quizSettings || {}), timeLimitMinutes, maxQuestions, maxRetakes };
         }
         App.toast('Quiz settings successfully updated!', 'success');
       }

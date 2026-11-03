@@ -27,13 +27,14 @@ const App = {
   isFacultyUser(user = this.state.user) {
     return !!user && (
       user.role === 'faculty' ||
+      user.role === 'admin' ||
       String(user.idNumber || '').trim().toUpperCase() === this.adminId
     );
   },
 
   applyAdminRole(user) {
     if (user && String(user.idNumber || '').trim().toUpperCase() === this.adminId) {
-      user.role = 'faculty';
+      user.role = 'admin';
     }
     return user;
   },
@@ -43,8 +44,22 @@ const App = {
     return String(value ?? '').replace(/[&<>"']/g, character => entities[character]);
   },
 
+  sanitizeRichHtml(value) {
+    const parsed = new DOMParser().parseFromString(String(value || ''), 'text/html');
+    const allowedTags = new Set(['P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'UL', 'OL', 'LI', 'H3', 'H4', 'BLOCKQUOTE']);
+    const clean = node => [...node.childNodes].forEach(child => {
+      if (child.nodeType !== Node.ELEMENT_NODE) return;
+      clean(child);
+      if (!allowedTags.has(child.tagName)) child.replaceWith(...child.childNodes);
+      else [...child.attributes].forEach(attribute => child.removeAttribute(attribute.name));
+    });
+    clean(parsed.body);
+    return parsed.body.innerHTML;
+  },
+
   async init() {
     this.bindEvents();
+    this.applyTheme(null);
     this.getLocalUsers();
     window.history.replaceState({ itpeLms: true, view: 'auth', authMode: 'login', depth: 0 }, '', window.location.href);
     window.addEventListener('popstate', event => {
@@ -73,11 +88,16 @@ const App = {
     try {
       const res = await fetch(endpoint, { ...options, headers });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Request failed');
+      if (!res.ok) {
+        const error = new Error(data.message || 'Request failed');
+        error.status = res.status;
+        error.data = data;
+        throw error;
+      }
       return data;
     } catch (err) {
       console.error(`API Error on ${endpoint}:`, err);
-      this.toast(err.message, 'danger');
+      if (endpoint !== '/api/auth/me') this.toast(err.message, 'danger');
       throw err;
     }
   },
@@ -93,26 +113,43 @@ const App = {
         await this.loadTopics();
         this.navigate('topics', null, { historyMode: 'replace' });
       } else { this.logout(); }
-    } catch (err) { this.logout(); }
+    } catch (err) {
+      if (err.status === 401) {
+        this.state.token = null;
+        this.state.user = null;
+        localStorage.removeItem('itpe_token');
+        localStorage.removeItem('itpe_current_user');
+        this.updateUserNav();
+        this.renderAuth('login', { historyMode: 'replace' });
+        this.toast('Your session expired. Please log in again.', 'warning');
+        return;
+      }
+      const main = document.getElementById('main-content');
+      if (main) main.innerHTML = `<section class="card" style="padding:24px"><h2>Connection problem</h2><p>${this.escapeHtml(err.message || 'Could not verify your session.')}</p><button class="btn btn-primary" onclick="App.checkAuth()">Try again</button></section>`;
+    }
   },
 
   updateUserNav() {
     const nav = document.getElementById('user-nav-area');
     if (!nav) return;
+    this.applyTheme(this.getTheme());
+    const theme = this.getTheme();
+    const themeButton = `<button class="btn btn-ghost btn-sm theme-toggle" type="button" onclick="App.toggleTheme()" aria-label="Switch to ${theme === 'night' ? 'light' : 'night'} mode" title="Switch to ${theme === 'night' ? 'light' : 'night'} mode"><span aria-hidden="true">${theme === 'night' ? '☀' : '☾'}</span><span>${theme === 'night' ? 'Light' : 'Night'}</span></button>`;
     if (!this.state.user) {
-      nav.innerHTML = `<button class="btn btn-primary btn-sm" onclick="App.renderAuth()">Log In / Register</button>`;
+      nav.innerHTML = `${themeButton}<button class="btn btn-primary btn-sm" onclick="App.renderAuth()">Log In / Register</button>`;
       return;
     }
     const isFac = this.isFacultyUser();
     if (isFac) {
-      nav.innerHTML = `
+      nav.innerHTML = `${themeButton}
         <div class="faculty-account">
           <span class="faculty-account-avatar" aria-hidden="true">${this.escapeHtml((this.state.user.firstName || 'F').charAt(0).toUpperCase())}</span>
-          <span><strong>${this.escapeHtml(this.state.user.firstName)} ${this.escapeHtml(this.state.user.lastName)}</strong><small>Faculty administrator</small></span>
+          <span><strong>${this.escapeHtml(this.state.user.firstName)} ${this.escapeHtml(this.state.user.lastName)}</strong><small>${this.state.user.role === 'admin' ? 'Admin' : 'Faculty member'}</small></span>
         </div>`;
       return;
     }
     nav.innerHTML = `
+      ${themeButton}
       <div class="user-pill">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg>
         <strong>${this.state.user.lastName}, ${this.state.user.firstName}</strong>
@@ -132,6 +169,27 @@ const App = {
         Logout
       </button>
     `;
+  },
+
+  getTheme() {
+    const userTheme = this.state.user?.id ? localStorage.getItem(`itpe_theme_${this.state.user.id}`) : null;
+    return userTheme || localStorage.getItem('itpe_theme') || 'night';
+  },
+
+  applyTheme(theme, persist = false) {
+    const selected = theme || this.getTheme();
+    document.body.classList.toggle('light-mode', selected === 'light');
+    document.documentElement.style.colorScheme = selected === 'light' ? 'light' : 'dark';
+    if (persist) {
+      if (this.state.user?.id) localStorage.setItem(`itpe_theme_${this.state.user.id}`, selected);
+      else localStorage.setItem('itpe_theme', selected);
+    }
+    return selected;
+  },
+
+  toggleTheme() {
+    this.applyTheme(this.getTheme() === 'night' ? 'light' : 'night', true);
+    this.updateUserNav();
   },
 
   async loadSubject() {
@@ -229,6 +287,44 @@ const App = {
     else if (view === 'quiz')        { Quiz.start(topicId); }
     else if (view === 'topic-report'){ Reports.renderTopicReport(topicId); }
     else if (view === 'master-report'){ Reports.renderMasterReport(); }
+    else if (view === 'students' && this.isFacultyUser()){ this.renderStudentsView(); }
+  },
+
+  async renderStudentsView() {
+    const main = document.getElementById('main-content');
+    main.innerHTML = '<section class="card" style="padding:24px"><h2>Students</h2><p>Loading registered accounts…</p></section>';
+    try {
+      const response = await this.api('/api/users');
+      if (this.state.currentView !== 'students') return;
+      const users = response.users || [];
+      const requests = users.filter(user => user.facultyRequestStatus === 'pending');
+      const rows = users.map(user => {
+        const pending = user.facultyRequestStatus === 'pending';
+        const roleLabel = user.role === 'admin' ? 'Admin' : user.role === 'faculty' ? 'Faculty member' : 'Student';
+        const roleControl = user.role === 'admin' ? '<span>Admin</span>' : pending
+          ? `<span style="display:flex;gap:.5rem"><button class="btn btn-primary btn-sm" onclick="App.changeUserRole('${this.escapeHtml(user.id)}','faculty',true)">Confirm</button><button class="btn btn-secondary btn-sm" onclick="App.changeUserRole('${this.escapeHtml(user.id)}','student',false)">Student</button></span>`
+          : `<select aria-label="Role for ${this.escapeHtml(user.firstName)} ${this.escapeHtml(user.lastName)}" onchange="App.changeUserRole('${this.escapeHtml(user.id)}',this.value,false)"><option value="student" ${user.role === 'student' ? 'selected' : ''}>Student</option><option value="faculty" ${user.role === 'faculty' ? 'selected' : ''}>Faculty member</option></select>`;
+        return `<tr><td>${this.escapeHtml(user.lastName)}, ${this.escapeHtml(user.firstName)}</td><td>${this.escapeHtml(user.idNumber)}</td><td>${pending ? 'Faculty member request pending' : roleLabel}</td><td>${roleControl}</td></tr>`;
+      }).join('');
+      main.innerHTML = `<section class="card" style="padding:24px"><div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem"><div><h2>Students</h2><p>Manage student accounts and faculty access.</p></div><span>${requests.length} pending faculty request${requests.length === 1 ? '' : 's'}</span></div><div class="table-responsive"><table class="data-table"><thead><tr><th>Name</th><th>ID</th><th>Status</th><th>Role</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No registered users yet.</td></tr>'}</tbody></table></div></section>`;
+    } catch (error) {
+      main.innerHTML = `<section class="card" style="padding:24px"><h2>Students</h2><p>${this.escapeHtml(error.message)}</p></section>`;
+    }
+  },
+
+  async changeUserRole(userId, role, confirmRequest) {
+    try {
+      if (role === 'faculty' && !confirmRequest && !window.confirm('Promote this student to Faculty member?')) {
+        await this.renderStudentsView();
+        return;
+      }
+      await this.api(`/api/users/${encodeURIComponent(userId)}/role`, { method: 'PUT', body: JSON.stringify({ role, confirm: confirmRequest }) });
+      this.toast(role === 'faculty' ? 'Faculty access confirmed.' : 'Role changed to Student.', 'success');
+      await this.renderStudentsView();
+    } catch (error) {
+      this.toast(error.message || 'Could not update role.', 'danger');
+      await this.renderStudentsView();
+    }
   },
 
   goBack(fallbackView = 'topics', fallbackTopicId = null) {
@@ -320,6 +416,7 @@ const App = {
             </button>
           `;
         } else {
+          const retakeLimitReached = Number(t.maxRetakes ?? -1) >= 0 && Number(t.attemptsCount || 0) >= Number(t.maxRetakes) + 1;
           if (t.isLocked) {
             statusBadge = `<span class="topic-status-badge locked"> Locked</span>`;
             actionButtons = `<button class="btn btn-secondary btn-sm" disabled> Locked</button>`;
@@ -327,13 +424,13 @@ const App = {
             statusBadge = `<span class="topic-status-badge completed"> ${t.bestScore}/${t.totalQuestions}</span>`;
             actionButtons = `
               <button class="btn btn-secondary btn-sm" onclick="App.navigate('topic-detail','${t.id}')">Review</button>
-              <button class="btn btn-success btn-sm" onclick="App.navigate('quiz','${t.id}')">Retake Quiz</button>
+              ${retakeLimitReached ? '<button class="btn btn-secondary btn-sm" disabled>Retake limit reached</button>' : `<button class="btn btn-success btn-sm" onclick="App.navigate('quiz','${t.id}')">Retake Quiz</button>`}
             `;
           } else if (t.status === 'failed') {
             statusBadge = `<span class="topic-status-badge failed"> Failed</span>`;
             actionButtons = `
               <button class="btn btn-danger btn-sm" onclick="App.navigate('topic-detail','${t.id}')">Review First</button>
-              <button class="btn btn-primary btn-sm" onclick="App.navigate('quiz','${t.id}')">Retake Quiz</button>
+              ${retakeLimitReached ? '<button class="btn btn-secondary btn-sm" disabled>Retake limit reached</button>' : `<button class="btn btn-primary btn-sm" onclick="App.navigate('quiz','${t.id}')">Retake Quiz</button>`}
             `;
           } else {
             statusBadge = `<span class="topic-status-badge in-progress">Unlocked</span>`;
@@ -349,7 +446,7 @@ const App = {
             <div class="topic-header">
               <div style="flex:1;min-width:0">
                 <div class="topic-number">Module ${t.order}</div>
-                <h3 class="topic-title">${t.title}</h3>
+                <h3 class="topic-title">${this.escapeHtml(t.title)}</h3>
               </div>
               ${statusBadge}
             </div>
@@ -391,6 +488,16 @@ const App = {
     const t = this.state.currentTopic;
     const isFaculty = this.isFacultyUser();
     const activeTab = this.state.activeTopicTab;
+    const progress = this.state.topics.find(topic => topic.id === t.id);
+    const attemptsUsed = Number(progress?.attemptsCount || 0);
+    const maxRetakes = Number(t.quizSettings?.maxRetakes ?? -1);
+    const retakesRemaining = maxRetakes < 0 ? null : Math.max(0, maxRetakes - Math.max(0, attemptsUsed - 1));
+    const retakeLimitReached = !isFaculty && maxRetakes >= 0 && attemptsUsed >= maxRetakes + 1;
+    const retakeSummary = maxRetakes < 0
+      ? 'Unlimited retakes'
+      : retakeLimitReached
+        ? `Retake limit reached (${attemptsUsed} attempt${attemptsUsed === 1 ? '' : 's'} used)`
+        : `${retakesRemaining} retake${retakesRemaining === 1 ? '' : 's'} remaining`;
 
     let contentHtml = '';
 
@@ -492,16 +599,17 @@ const App = {
             </h3>
             ${isFaculty ? `<button class="btn btn-secondary btn-sm" onclick="Faculty.openSummaryEditor()"> Edit</button>` : ''}
           </div>
-          <div class="topic-summary-body">${t.summary || '<p style="color:rgba(165,180,252,0.4)">No summary provided yet.</p>'}</div>
+          <div class="topic-summary-body">${t.summary ? this.sanitizeRichHtml(t.summary) : '<p style="color:rgba(165,180,252,0.4)">No summary provided yet.</p>'}</div>
           <div style="margin-top:2rem;padding:1.35rem;background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(6,182,212,0.08));border-radius:14px;border:1px solid rgba(99,102,241,0.25);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
             <div>
               <h4 style="font-weight:700;color:#a5b4fc;margin-bottom:0.25rem">Ready for the Topic Assessment?</h4>
               <p style="font-size:0.82rem;color:rgba(165,180,252,0.6)">${t.quizSettings?.timeLimitMinutes || 10}-minute timer · ${t.quizSettings?.passingPercentage || 50}% passing threshold · Pass to unlock the next module.</p>
             </div>
-            <button class="btn btn-accent btn-lg" onclick="App.navigate('quiz','${t.id}')">
+            ${retakeLimitReached ? '<button class="btn btn-secondary btn-lg" disabled>Retake limit reached</button>' : `<button class="btn btn-accent btn-lg" onclick="App.navigate('quiz','${t.id}')">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               Start Quiz Now
-            </button>
+            </button>`}
+            ${isFaculty ? '' : `<small style="color:rgba(165,180,252,0.65)">${retakeSummary}</small>`}
           </div>
         </div>
       `;
@@ -515,14 +623,14 @@ const App = {
         </button>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="App.navigate('topic-report','${t.id}')">Quiz Results</button>
-          <button class="btn btn-accent btn-sm" onclick="App.navigate('quiz','${t.id}')"> Take Quiz</button>
+          ${retakeLimitReached ? '<button class="btn btn-secondary btn-sm" disabled>Retake limit reached</button>' : `<button class="btn btn-accent btn-sm" onclick="App.navigate('quiz','${t.id}')"> Take Quiz</button>`}
         </div>
       </div>
 
       <div class="card">
         <div style="border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:1.1rem;margin-bottom:1.25rem">
           <div class="topic-number">Module ${t.order}</div>
-          <h2 style="font-size:1.5rem;font-weight:900;color:#f0f2ff;letter-spacing:-0.03em;margin-top:0.2rem">${t.title}</h2>
+          <h2 style="font-size:1.5rem;font-weight:900;color:#f0f2ff;letter-spacing:-0.03em;margin-top:0.2rem">${this.escapeHtml(t.title)}</h2>
         </div>
 
         <div class="tabs">
@@ -750,6 +858,15 @@ const App = {
         </div>
 
         <div class="auth-field-group">
+          <label class="auth-label">Register as</label>
+          <div style="display:flex;gap:1.25rem;align-items:center;padding:.35rem 0;color:rgba(165,180,252,.85)">
+            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="radio" name="reg-role" value="student" checked /> Student</label>
+            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="radio" name="reg-role" value="faculty" /> Faculty member</label>
+          </div>
+          <small style="color:rgba(165,180,252,.55)">Faculty requests need confirmation by an existing faculty member.</small>
+        </div>
+
+        <div class="auth-field-group">
           <label class="auth-label">Password</label>
           <div class="auth-input-wrap">
             <input type="password" id="reg-password" class="auth-input" required placeholder="Create password" style="padding-left:0.85rem" />
@@ -818,6 +935,7 @@ const App = {
     const idNumber  = (document.getElementById('reg-idnumber')?.value || '').trim().toUpperCase();
     const password  = document.getElementById('reg-password')?.value || '';
     const privacyAgreed = document.getElementById('reg-privacy')?.checked;
+    const requestedRole = document.querySelector('input[name="reg-role"]:checked')?.value || 'student';
 
     if (!firstName) { this.toast('Please enter your First Name.', 'warning'); return; }
     if (!lastName)  { this.toast('Please enter your Last Name.', 'warning'); return; }
@@ -830,13 +948,13 @@ const App = {
     try {
       const res = await this.api('/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ firstName, lastName, idNumber, password, privacyAgreed })
+        body: JSON.stringify({ firstName, lastName, idNumber, password, privacyAgreed, requestedRole })
       });
       this.state.user = this.applyAdminRole(res.user);
       this.state.token = res.token;
       localStorage.setItem('itpe_token', res.token);
       localStorage.setItem('itpe_current_user', JSON.stringify(this.state.user));
-      this.toast(`Registration successful! Welcome, ${firstName}! `, 'success');
+      this.toast(requestedRole === 'faculty' ? 'Registration received. Your faculty request is pending confirmation.' : `Registration successful! Welcome, ${firstName}! `, 'success');
       this.updateUserNav();
       await this.loadSubject();
       await this.loadTopics();
@@ -849,6 +967,13 @@ const App = {
   },
 
   logout() {
+    const token = this.state.token;
+    if (token) {
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(error => console.warn('Could not revoke the server session during logout:', error));
+    }
     this.state.token = null;
     this.state.user = null;
     localStorage.removeItem('itpe_token');
@@ -897,19 +1022,19 @@ const App = {
         </div>
         <div class="form-group">
           <label class="form-label">Subject Name</label>
-          <input type="text" id="modal-sub-name" class="form-control" value="${s.name}" />
+          <input type="text" id="modal-sub-name" class="form-control" value="${this.escapeHtml(s.name)}" />
         </div>
         <div class="form-group">
           <label class="form-label">Subject Code</label>
-          <input type="text" id="modal-sub-code" class="form-control" value="${s.code}" />
+          <input type="text" id="modal-sub-code" class="form-control" value="${this.escapeHtml(s.code)}" />
         </div>
         <div class="form-group">
           <label class="form-label">Term / Semester</label>
-          <input type="text" id="modal-sub-term" class="form-control" value="${s.term}" />
+          <input type="text" id="modal-sub-term" class="form-control" value="${this.escapeHtml(s.term)}" />
         </div>
         <div class="form-group">
           <label class="form-label">Year Level & Program</label>
-          <input type="text" id="modal-sub-year" class="form-control" value="${s.yearLevel}" />
+          <input type="text" id="modal-sub-year" class="form-control" value="${this.escapeHtml(s.yearLevel)}" />
         </div>
       `,
       confirmText: 'Save Changes',
